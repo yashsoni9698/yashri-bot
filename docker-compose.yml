@@ -1,0 +1,16 @@
+services:
+  yashri-bot:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      - NODE_ENV=production
+    volumes:
+      # Keep tasks, payments, memory, chat across restarts
+      - yashri-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  yashri-data:

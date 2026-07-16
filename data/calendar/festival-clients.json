@@ -1,0 +1,128 @@
+[
+  {
+    "id": "d6a98eaf-cd38-4df6-aaf1-bc8b29066506",
+    "name": "Sumeru Academy",
+    "mediaType": "image",
+    "businessType": "Education / Academy",
+    "noPayment": false,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:20:23.703Z"
+  },
+  {
+    "id": "8ef1bdc2-ce5c-4102-a471-fb858b96453f",
+    "name": "Sandip Jewellers",
+    "mediaType": "image",
+    "businessType": "Jewellery",
+    "noPayment": false,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:20:23.703Z"
+  },
+  {
+    "id": "1cefbdec-cf16-46b3-a696-13069cc036df",
+    "name": "Radhe Jewellers",
+    "mediaType": "image",
+    "businessType": "Jewellery",
+    "noPayment": false,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:20:23.703Z"
+  },
+  {
+    "id": "f8b2e709-cee8-4ad3-80c2-9f24bdbdfd38",
+    "name": "Confast Chemicals",
+    "mediaType": "image",
+    "businessType": "Chemicals / Industry",
+    "noPayment": false,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:20:23.703Z"
+  },
+  {
+    "id": "6abeef7a-b4d2-48a9-a50d-db97497b4a47",
+    "name": "Hemant Panchal",
+    "mediaType": "image",
+    "businessType": "",
+    "noPayment": false,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:20:23.703Z"
+  },
+  {
+    "id": "01e90836-ebdc-403b-907b-5acb7be59c82",
+    "name": "Akshar Consultancy",
+    "mediaType": "image",
+    "businessType": "Consultancy",
+    "noPayment": true,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:31:43.614Z"
+  },
+  {
+    "id": "c28655dc-db9c-4668-a25d-fbd03751aba6",
+    "name": "Pragati - Meet DDU",
+    "mediaType": "image",
+    "businessType": "Education / Coaching",
+    "noPayment": false,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:20:23.703Z"
+  },
+  {
+    "id": "a20f943c-28bc-4a26-8418-f09b40c48a18",
+    "name": "Krishna Bridal Studio",
+    "mediaType": "video",
+    "businessType": "Bridal / Wedding",
+    "noPayment": false,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:20:23.703Z"
+  },
+  {
+    "id": "238fe8d0-e211-4ba0-8bf5-1a00ad151f6a",
+    "name": "Krishna House of Fashion",
+    "mediaType": "image",
+    "businessType": "Fashion",
+    "noPayment": false,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:20:23.703Z"
+  },
+  {
+    "id": "2a1cb7e7-c74f-45f0-8a03-1835a6da3188",
+    "name": "Jinendra Enterprise",
+    "mediaType": "image",
+    "businessType": "Business / Enterprise",
+    "noPayment": true,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:31:43.614Z"
+  },
+  {
+    "id": "623797a7-eb29-4a97-b548-f050c4dc7d08",
+    "name": "Soni Creative",
+    "mediaType": "video",
+    "businessType": "Creative / Design Agency",
+    "noPayment": true,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:31:43.614Z"
+  },
+  {
+    "id": "94a08ff2-4253-4181-9b39-a57ce74c3e7f",
+    "name": "Crafted Nails",
+    "mediaType": "image",
+    "businessType": "Nail Salon / Beauty",
+    "noPayment": true,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:31:43.614Z"
+  },
+  {
+    "id": "98e7eddd-045c-49f1-b42d-a44a40b0b7ea",
+    "name": "SRH Jewellers",
+    "mediaType": "image",
+    "businessType": "Jewellery",
+    "noPayment": true,
+    "createdAt": "2026-07-14T12:20:23.703Z",
+    "updatedAt": "2026-07-14T12:31:43.614Z"
+  },
+  {
+    "id": "ab4e88ef-4eb1-4ae3-a01d-40c5fcbfd5db",
+    "name": "Badshah Cloud",
+    "mediaType": "image",
+    "businessType": "",
+    "noPayment": false,
+    "createdAt": "2026-07-15T12:13:15.952Z",
+    "updatedAt": "2026-07-15T12:13:15.952Z"
+  }
+]

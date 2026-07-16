@@ -1,0 +1,26 @@
+{
+  "userName": "Yash",
+  "organization": "Soni Creative",
+  "activeProvider": "groq",
+  "geminiApiKey": "",
+  "groqApiKey": "",
+  "openaiApiKey": "",
+  "openrouterApiKey": "",
+  "theme": "light",
+  "notifications": {
+    "morningSummary": true,
+    "festivalReminders": true,
+    "paymentReminders": true,
+    "taskReminders": true
+  },
+  "disabledFestivalReminders": [
+    "Valentine's Day",
+    "Ashadhi Ekadashi",
+    "Guru Purnima"
+  ],
+  "groqModel": "llama-3.3-70b-versatile",
+  "geminiModel": "gemini-2.0-flash",
+  "openaiModel": "gpt-4o-mini",
+  "openrouterModel": "openai/gpt-4o-mini",
+  "memoryPassword": "yysoni"
+}

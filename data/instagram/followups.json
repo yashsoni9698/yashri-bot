@@ -1,0 +1,42 @@
+[
+  {
+    "id": "0cacdc6c-b6e1-4734-b59b-873f44c41415",
+    "accountId": "soni_creative",
+    "topic": "own_instagram_campaign",
+    "status": "done",
+    "remindAt": "2026-07-15",
+    "lastRemindedAt": "2026-07-15",
+    "createdAt": "2026-07-15T07:00:46.637Z",
+    "updatedAt": "2026-07-15T07:00:53.453Z"
+  },
+  {
+    "id": "302b9fed-330f-48b3-b056-b97ab49736cd",
+    "accountId": "thought_by_sonicreativ",
+    "topic": "own_instagram_campaign",
+    "status": "snoozed",
+    "remindAt": "2026-07-17",
+    "lastRemindedAt": "2026-07-15",
+    "createdAt": "2026-07-15T07:00:53.459Z",
+    "updatedAt": "2026-07-15T07:28:08.897Z"
+  },
+  {
+    "id": "4c5dd615-6c11-481e-9348-408207f79203",
+    "accountId": "confast_chemicals",
+    "topic": "own_instagram_campaign",
+    "status": "snoozed",
+    "remindAt": "2026-07-22",
+    "lastRemindedAt": "2026-07-15",
+    "createdAt": "2026-07-15T07:08:01.237Z",
+    "updatedAt": "2026-07-15T07:08:38.869Z"
+  },
+  {
+    "id": "456bc653-9a95-47e0-9038-f27c4c611e08",
+    "accountId": "soni_creative",
+    "topic": "own_instagram_campaign",
+    "status": "snoozed",
+    "remindAt": "2026-07-17",
+    "createdAt": "2026-07-15T07:28:05.310Z",
+    "updatedAt": "2026-07-15T08:49:24.732Z",
+    "lastRemindedAt": "2026-07-15"
+  }
+]

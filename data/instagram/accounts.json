@@ -1,0 +1,51 @@
+[
+  {
+    "id": "soni_creative",
+    "handle": "Soni_Creative",
+    "displayName": "Soni Creative",
+    "aliases": [
+      "soni_creative",
+      "sonicreative",
+      "soni creative",
+      "soni creativ",
+      "soni-creative"
+    ],
+    "focus": "Client-work showcase / portfolio samples (Work Show Post) on Instagram",
+    "weeklyTargetMin": 1,
+    "weeklyTargetMax": 2,
+    "remindEveryDays": 3
+  },
+  {
+    "id": "thought_by_sonicreativ",
+    "handle": "thought_by_sonicreativ",
+    "displayName": "Thought by Soni Creative",
+    "aliases": [
+      "thought_by_sonicreativ",
+      "thought by soni creative",
+      "thoughtbysonicreativ",
+      "thought by sonicreativ",
+      "thought by soni",
+      "thoughtbysoni"
+    ],
+    "focus": "Quote posts, Campaign posts for Soni Creative, and Festival images",
+    "weeklyTargetMin": 1,
+    "weeklyTargetMax": 2,
+    "remindEveryDays": 3
+  },
+  {
+    "id": "confast_chemicals",
+    "handle": "Confast_Chemicals",
+    "displayName": "Confast Chemicals",
+    "aliases": [
+      "confast",
+      "confast chemicals",
+      "confast_chemicals",
+      "confastchemicals",
+      "con fast"
+    ],
+    "focus": "Client Instagram page Yash handles — remind at least once a week to post",
+    "weeklyTargetMin": 1,
+    "weeklyTargetMax": 1,
+    "remindEveryDays": 7
+  }
+]

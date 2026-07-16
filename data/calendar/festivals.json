@@ -1,0 +1,318 @@
+[
+  {
+    "id": "f-newyear",
+    "name": "New Year's Day",
+    "date": "01-01",
+    "type": "international",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-bose",
+    "name": "Netaji Subhas Chandra Bose Jayanti",
+    "date": "01-23",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true,
+    "description": "Birth anniversary of Netaji"
+  },
+  {
+    "id": "f-republic",
+    "name": "Republic Day",
+    "date": "01-26",
+    "type": "national",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-martyrs",
+    "name": "Martyrs' Day",
+    "date": "01-30",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true,
+    "description": "Mahatma Gandhi death anniversary"
+  },
+  {
+    "id": "f-valentines",
+    "name": "Valentine's Day",
+    "date": "02-14",
+    "type": "international",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-shivaji",
+    "name": "Chhatrapati Shivaji Maharaj Jayanti",
+    "date": "02-19",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-womens",
+    "name": "International Women's Day",
+    "date": "03-08",
+    "type": "international",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-holi",
+    "name": "Holi",
+    "date": "2027-03-03",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-ambedkar",
+    "name": "Dr. B.R. Ambedkar Jayanti",
+    "date": "04-14",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-earth",
+    "name": "Earth Day",
+    "date": "04-22",
+    "type": "awareness",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-labour",
+    "name": "Labour Day",
+    "date": "05-01",
+    "type": "national",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-mothers",
+    "name": "Mother's Day",
+    "date": "05-10",
+    "type": "international",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-tagore",
+    "name": "Rabindranath Tagore Jayanti",
+    "date": "05-07",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-env",
+    "name": "World Environment Day",
+    "date": "06-05",
+    "type": "awareness",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-fathers",
+    "name": "Father's Day",
+    "date": "06-21",
+    "type": "international",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-yoga",
+    "name": "International Yoga Day",
+    "date": "06-21",
+    "type": "awareness",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-rath-yatra",
+    "name": "Rath Yatra",
+    "date": "2026-07-16",
+    "type": "religious",
+    "recurring": false,
+    "notify": true,
+    "description": "Jagannath Rath Yatra — Puri"
+  },
+  {
+    "id": "f-ashadhi",
+    "name": "Ashadhi Ekadashi",
+    "date": "2026-07-25",
+    "type": "religious",
+    "recurring": false,
+    "notify": false
+  },
+  {
+    "id": "f-kargil",
+    "name": "Kargil Vijay Diwas",
+    "date": "07-26",
+    "type": "national",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-independence",
+    "name": "Independence Day",
+    "date": "08-15",
+    "type": "national",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-rakhi",
+    "name": "Raksha Bandhan",
+    "date": "2026-08-09",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-janmashtami",
+    "name": "Janmashtami",
+    "date": "2026-09-04",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-teachers",
+    "name": "Teacher's Day",
+    "date": "09-05",
+    "type": "national",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-engineers",
+    "name": "Engineer's Day",
+    "date": "09-15",
+    "type": "business",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-bhagat",
+    "name": "Bhagat Singh Jayanti",
+    "date": "09-28",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true,
+    "description": "Birth anniversary of Shaheed Bhagat Singh"
+  },
+  {
+    "id": "f-gandhi",
+    "name": "Gandhi Jayanti",
+    "date": "10-02",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-navratri",
+    "name": "Navratri Begins",
+    "date": "2026-10-11",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-dussehra",
+    "name": "Dussehra",
+    "date": "2026-10-20",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-azad",
+    "name": "Chandra Shekhar Azad Death Anniversary",
+    "date": "02-27",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-diwali",
+    "name": "Diwali",
+    "date": "2026-11-08",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-childrens",
+    "name": "Children's Day",
+    "date": "11-14",
+    "type": "national",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-navy",
+    "name": "Navy Day",
+    "date": "12-04",
+    "type": "national",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-human-rights",
+    "name": "Human Rights Day",
+    "date": "12-10",
+    "type": "international",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-christmas",
+    "name": "Christmas",
+    "date": "12-25",
+    "type": "religious",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-lal-bahadur",
+    "name": "Lal Bahadur Shastri Jayanti",
+    "date": "10-02",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-sardar",
+    "name": "Sardar Patel Jayanti (National Unity Day)",
+    "date": "10-31",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-indira",
+    "name": "Indira Gandhi Death Anniversary",
+    "date": "10-31",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-nehru",
+    "name": "Jawaharlal Nehru Jayanti",
+    "date": "11-14",
+    "type": "jayanti",
+    "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-guru-purnima",
+    "name": "Guru Purnima",
+    "date": "2026-07-29",
+    "type": "religious",
+    "recurring": false,
+    "notify": false
+  }
+]

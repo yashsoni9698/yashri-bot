@@ -1,0 +1,19 @@
+{
+  "activeSessionId": "0dac2112-36f6-496b-82ac-33184d0951df",
+  "sessions": [
+    {
+      "id": "0dac2112-36f6-496b-82ac-33184d0951df",
+      "title": "New Chat",
+      "createdAt": "2026-07-16T06:20:06.950Z",
+      "updatedAt": "2026-07-16T06:20:06.949Z",
+      "messages": [
+        {
+          "id": "96f03a9c-48d1-42df-a363-be199e16cf87",
+          "role": "assistant",
+          "content": "Good Morning Yash 👋\n\nHope you're having a productive day at Soni Creative.\n\n**Today's Summary:**\n- No Pending Task\n\n**Tomorrow Work:**\n- No Pending Work\n\n**UpComing:**\n- No Upcoming Task\n\n**Festival / Days Greetings:**\n- Rath Yatra (today)\n- Kargil Vijay Diwas (10d)\n\n**Payment Pending:**\n- No Payment Pending\n\nHow can I help you today?\n\nI can also draft Rath Yatra greet messages for all festival clients if you'd like.",
+          "createdAt": "2026-07-16T06:20:06.949Z"
+        }
+      ]
+    }
+  ]
+}

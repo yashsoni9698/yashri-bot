@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env
+.env.local
+.env.*.local
+npm-debug.log*
+README.md
+AGENTS.md
+CLAUDE.md
+tsconfig.tsbuildinfo
+**/.DS_Store
