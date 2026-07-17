@@ -1,7 +1,6 @@
 /**
  * Deterministic command router.
- * Mutating chat commands are handled here FIRST so the LLM cannot
- * invent broken action names or claim success without a real write.
+ * Used as a verified fallback when the LLM cannot complete a requested action.
  */
 import {
   createTask,
@@ -705,6 +704,59 @@ function tryHandleAddTasks(raw: string): CommandResult | null {
     handled: true,
     reply: `Added **${created.length} tasks**:\n${lines.join("\n")}`,
     toasts,
+  };
+}
+
+function labeledLine(raw: string, label: string): string {
+  const match = raw.match(
+    new RegExp(
+      `(?:^|[\\r\\n])\\s*(?:${label})\\s*(?:is\\s*)?[:=-]\\s*([^\\r\\n]+)`,
+      "i"
+    )
+  );
+  return match?.[1]?.trim() || "";
+}
+
+/**
+ * Narrow fallback for a clearly structured task brief without an add/create
+ * verb. Groq handles this normally; this only runs if no model action succeeded.
+ */
+function tryHandleStructuredTaskBrief(raw: string): CommandResult | null {
+  if (!/\btask\b/i.test(raw) || isTeachingOrMetaMessage(raw)) return null;
+
+  const projectName = labeledLine(raw, "(?:project|task)\\s*name");
+  if (!projectName) return null;
+
+  const clientName =
+    labeledLine(raw, "client(?:\\s*name)?") || "General";
+  const requirementsRaw = labeledLine(raw, "requirements?");
+  const deadlineRaw = labeledLine(raw, "(?:deadline|due\\s*date)");
+  const amountRaw = labeledLine(raw, "amount");
+  const deadline = deadlineRaw
+    ? toStorageDate(deadlineRaw, true)
+    : deadlineFromMessage(raw, 0);
+
+  const task = createTask({
+    clientName,
+    projectName,
+    requirements: requirementsRaw
+      ? requirementsRaw
+          .split(",")
+          .map((item) => item.trim())
+          .filter(Boolean)
+      : [],
+    priority: priorityFromRaw(raw),
+    deadline,
+    amount: amountRaw ? Number(amountRaw.replace(/[^\d.]/g, "")) || 0 : undefined,
+  });
+
+  const own = matchAccountFromText(`${task.clientName} ${task.projectName}`);
+  if (own) resolveOwnInstagramFollowUp(own.handle);
+
+  return {
+    handled: true,
+    reply: `Added **${task.projectName}** for **${task.clientName}** (${task.priority}, due ${formatDate(task.deadline)}).`,
+    toasts: [toastAddedTask(task.deadline)],
   };
 }
 
@@ -2180,6 +2232,10 @@ export function resolveCommand(message: string): CommandResult {
       reply: buildWorkAskReply(workScope),
     };
   }
+
+  // ——— Structured task brief without an explicit add/create verb ———
+  const structuredTask = tryHandleStructuredTaskBrief(raw);
+  if (structuredTask) return structuredTask;
 
   // ——— Add task(s) — expands "N different tasks" into N separate tasks ———
   const addTasks = tryHandleAddTasks(raw);

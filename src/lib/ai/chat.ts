@@ -23,6 +23,7 @@ import { maybeLearnFromUserMessage, isTeachingOrMetaMessage } from "@/lib/ai/ski
 import {
   buildOwnInstagramSnapshot,
 } from "@/lib/instagram/pipeline";
+import { getPendingOffer } from "@/lib/instagram/offers";
 import { todoBucket } from "@/lib/task-toasts";
 import { daysUntil, getZonedParts, greetingForHour } from "@/lib/utils";
 
@@ -46,28 +47,6 @@ export async function handleChat(input: {
   const userMessage = input.message.trim();
   const sessionId = input.sessionId;
 
-  // 1) Deterministic commands first — never rely on LLM for these
-  if (!input.skipLocalIntent && !input.imageBase64) {
-    const command = resolveCommand(userMessage);
-    if (command.handled) {
-      addChatMessage({ role: "user", content: userMessage }, sessionId);
-      const assistant = addChatMessage(
-        {
-          role: "assistant",
-          content: command.reply,
-        },
-        sessionId
-      );
-      return {
-        reply: command.reply,
-        message: assistant,
-        actions: ["command"],
-        toasts: command.toasts || [],
-        sessionId: getActiveSessionId(),
-      };
-    }
-  }
-
   addChatMessage(
     {
       role: "user",
@@ -89,11 +68,14 @@ export async function handleChat(input: {
   const history = getChatHistory(activeId || undefined)
     .filter((m) => m.role === "user" || m.role === "assistant")
     .slice(0, -1)
-    .slice(-12)
+    .slice(-24)
     .map((m) => ({
       role: m.role as "user" | "assistant",
       content: m.content,
     }));
+  const shouldTryStatefulFallback =
+    Boolean(getPendingOffer()) ||
+    looksLikeStatefulFollowUp(userMessage, history);
 
   const systemPrompt = buildSystemPrompt();
   const raw = await generateAssistantReply({
@@ -119,12 +101,16 @@ export async function handleChat(input: {
   }
 
   let actionResults = executeActions(actions);
-  let successes = actionResults.filter(isSuccessfulResult);
+  const successes = actionResults.filter(isSuccessfulResult);
+  const requestedMutation =
+    isMutationIntent(userMessage) || looksLikeStructuredTaskBrief(userMessage);
 
-  // 2) If user asked to mutate but LLM failed / invented junk — run command fallback
+  // Groq is the primary interpreter. Deterministic commands are only a fallback
+  // when the model did not complete an action the user clearly requested.
   if (
+    !input.skipLocalIntent &&
     !isTeachingOrMetaMessage(userMessage) &&
-    isMutationIntent(userMessage) &&
+    (requestedMutation || shouldTryStatefulFallback) &&
     successes.length === 0
   ) {
     const fallback = resolveCommand(userMessage);
@@ -140,13 +126,13 @@ export async function handleChat(input: {
         reply: fallback.reply,
         message: assistant,
         actions: ["command-fallback"],
-        toasts: fallback.toasts || [],
+        toasts: commandToasts(fallback.reply, fallback.toasts),
         sessionId: getActiveSessionId(),
       };
     }
   }
 
-  // 3) Never show "Unknown action" / failure noise; never claim success without a write
+  // Never show "Unknown action" / failure noise; never claim success without a write
   let reply = cleanText;
 
   // Learn durable skills from corrections (never from today/tomorrow task lists)
@@ -162,7 +148,7 @@ export async function handleChat(input: {
   if (successes.length) {
     reply += `\n\n_${successes.join(" · ")}_`;
   } else if (
-    isMutationIntent(userMessage) &&
+    requestedMutation &&
     /removed|deleted|added|saved|marked/i.test(cleanText)
   ) {
     // LLM claimed success without a real mutation — correct it
@@ -181,13 +167,66 @@ export async function handleChat(input: {
     reply,
     message: assistant,
     actions: actionResults,
-    toasts: successes.filter(isTaskToast),
+    toasts: successes.filter(isMutationToast),
     sessionId: getActiveSessionId(),
   };
 }
 
-function isTaskToast(result: string): boolean {
-  return /^(Added task in |Moved to |Removed from |Added in )/i.test(result);
+function looksLikeStructuredTaskBrief(message: string): boolean {
+  const labels = message.match(
+    /\b(?:project|task|client|priority|deadline|due\s*date|requirements?|amount)\s*(?:name\s*)?[:=-]/gi
+  );
+  return /\btask\b/i.test(message) && (labels?.length || 0) >= 1;
+}
+
+function looksLikeStatefulFollowUp(
+  message: string,
+  history: Array<{ role: "user" | "assistant"; content: string }>
+): boolean {
+  if (
+    /\b(?:recently|already|just)\s+posted\b|\bposted\s+(?:it\s+)?today\b|\bno need for now\b/i.test(
+      message
+    )
+  ) {
+    return true;
+  }
+
+  const isShortConfirmation =
+    /^(?:yes|yeah|yep|sure|ok(?:ay)?|no|not yet|later)$/i.test(message.trim());
+  if (!isShortConfirmation) return false;
+
+  const lastAssistant = [...history]
+    .reverse()
+    .find((turn) => turn.role === "assistant")?.content;
+  return Boolean(
+    lastAssistant &&
+      /\b(?:festival|greet|greeting|instagram|post|campaign)\b/i.test(
+        lastAssistant
+      )
+  );
+}
+
+function isMutationToast(result: string): boolean {
+  return !/^(?:Skipped\b|Nothing to update\b|No Instagram snooze found\b)/i.test(
+    result.trim()
+  );
+}
+
+function commandToasts(reply: string, toasts?: string[]): string[] {
+  if (toasts?.length) return toasts;
+  if (
+    !/^(?:Added|Removed|Updated|Saved|Snoozed|Unsnoozed|Deleted|Marked|Moved|Reopened|Remembered|Logged)\b/i.test(
+      reply.trim()
+    )
+  ) {
+    return [];
+  }
+  return [
+    reply
+      .replace(/\*\*/g, "")
+      .replace(/\s+/g, " ")
+      .trim(),
+  ];
 }
 
 function pendingCountLine(count: number, emptyLabel: string): string {

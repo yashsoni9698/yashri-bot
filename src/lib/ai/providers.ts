@@ -3,6 +3,8 @@ import Groq from "groq-sdk";
 import { getSettings } from "@/lib/data/store";
 import { AiProvider } from "@/lib/types";
 
+const MAX_HISTORY_TURNS = 24;
+
 export interface ChatTurn {
   role: "user" | "assistant";
   content: string;
@@ -78,7 +80,7 @@ async function generateWithGemini(
     systemInstruction: options.systemPrompt,
   });
 
-  const history = options.history.slice(-12).map((h) => ({
+  const history = options.history.slice(-MAX_HISTORY_TURNS).map((h) => ({
     role: h.role === "assistant" ? "model" : "user",
     parts: [{ text: h.content }],
   }));
@@ -125,7 +127,7 @@ async function generateWithGroq(
     model: modelName || "llama-3.3-70b-versatile",
     messages: [
       { role: "system", content: options.systemPrompt },
-      ...options.history.slice(-12).map((h) => ({
+      ...options.history.slice(-MAX_HISTORY_TURNS).map((h) => ({
         role: h.role as "user" | "assistant",
         content: h.content,
       })),
@@ -187,7 +189,7 @@ async function generateWithOpenAICompatible(options: {
       model: options.modelName,
       messages: [
         { role: "system", content: options.systemPrompt },
-        ...options.history.slice(-12).map((h) => ({
+        ...options.history.slice(-MAX_HISTORY_TURNS).map((h) => ({
           role: h.role,
           content: h.content,
         })),
