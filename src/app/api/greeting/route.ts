@@ -34,17 +34,24 @@ export async function GET() {
     history = activeSessionId ? getChatHistory(activeSessionId) : [];
   }
 
-  // Dedupe if Strict Mode / parallel GETs wrote the same greeting twice
+  // Until the user replies, the session only holds saved greeting(s).
+  // Refresh a stale one (e.g. yesterday's "Good Morning") and collapse
+  // Strict Mode / parallel-GET duplicates down to one fresh greeting.
   if (
     activeSessionId &&
-    history.length > 1 &&
+    greeting.greeting &&
+    history.length > 0 &&
     !history.some((m) => m.role === "user") &&
-    history.every(
-      (m) => m.role === "assistant" && m.content === greeting.greeting
-    )
+    history.every((m) => m.role === "assistant") &&
+    (history.length > 1 || history[0].content !== greeting.greeting)
   ) {
-    saveChatHistory([history[0]], activeSessionId);
-    history = [history[0]];
+    const refreshed = {
+      ...history[0],
+      content: greeting.greeting,
+      createdAt: new Date().toISOString(),
+    };
+    saveChatHistory([refreshed], activeSessionId);
+    history = [refreshed];
   }
 
   const sessions = listChatSessions();
