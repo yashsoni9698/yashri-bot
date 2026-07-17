@@ -14,6 +14,13 @@ import { ensureSupabaseData } from "@/lib/data/init";
 
 export const runtime = "nodejs";
 
+function toPaymentTimestamp(value: unknown): string | undefined {
+  if (!value) return undefined;
+  const date = toStorageDate(String(value), false);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return undefined;
+  return `${date}T12:00:00.000Z`;
+}
+
 export async function GET(req: NextRequest) {
   await ensureSupabaseData();
   const status = req.nextUrl.searchParams.get("status");
@@ -59,9 +66,17 @@ export async function POST(req: NextRequest) {
     }
     return NextResponse.json(result);
   }
+  const clientName = String(body.clientName || "").trim();
+  const projectName = String(body.projectName || "").trim();
+  if (!clientName || !projectName) {
+    return NextResponse.json(
+      { error: "Client name and project name are required" },
+      { status: 400 }
+    );
+  }
   const payment = createPayment({
-    clientName: body.clientName,
-    projectName: body.projectName,
+    clientName,
+    projectName,
     amount: Number(body.amount || 0),
     status: body.status || "pending",
     dueDate: body.dueDate
@@ -69,6 +84,7 @@ export async function POST(req: NextRequest) {
       : undefined,
     taskId: body.taskId,
     notes: body.notes,
+    createdAt: toPaymentTimestamp(body.completedDate || body.createdAt),
   });
   return NextResponse.json({ payment });
 }
@@ -80,7 +96,33 @@ export async function PATCH(req: NextRequest) {
     const result = markPaymentPaid(String(body.id || body.paymentId));
     return NextResponse.json(result);
   }
-  const payment = updatePayment(body.id, body.patch || body);
+  const source = body.patch || body;
+  const {
+    id: _ignoredId,
+    action: _ignoredAction,
+    completedDate,
+    ...patch
+  } = source;
+  if (patch.clientName !== undefined) {
+    patch.clientName = String(patch.clientName).trim();
+  }
+  if (patch.projectName !== undefined) {
+    patch.projectName = String(patch.projectName).trim();
+  }
+  if (patch.amount !== undefined) {
+    patch.amount = Number(patch.amount || 0);
+  }
+  if (patch.dueDate) {
+    patch.dueDate =
+      toStorageDate(String(patch.dueDate), false) || patch.dueDate;
+  }
+  if (completedDate || patch.createdAt) {
+    patch.createdAt = toPaymentTimestamp(completedDate || patch.createdAt);
+  }
+  const payment = updatePayment(String(body.id || source.id || ""), patch);
+  if (!payment) {
+    return NextResponse.json({ error: "Payment not found" }, { status: 404 });
+  }
   return NextResponse.json({ payment });
 }
 

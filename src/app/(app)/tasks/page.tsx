@@ -14,7 +14,7 @@ import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { TruncatedText } from "@/components/ui/truncated-text";
-import { daysUntil, formatDate, priorityBadgeTone } from "@/lib/utils";
+import { daysUntil, formatDate, formatINR, priorityBadgeTone } from "@/lib/utils";
 import { toast } from "@/components/ui/toaster";
 import { InstagramNotifyBell } from "@/components/layout/InstagramNotifyBell";
 import {
@@ -32,6 +32,7 @@ interface Task {
   priority: string;
   deadline: string;
   status: string;
+  amount?: number;
   notes?: string;
   dueWork?: boolean;
 }
@@ -42,6 +43,7 @@ const emptyForm = {
   requirements: "",
   priority: "low",
   deadline: "",
+  amount: "0",
   notes: "",
 };
 
@@ -61,8 +63,19 @@ function groupForDeadline(deadline: string, dueWork?: boolean): TaskGroup {
   return "future";
 }
 
-function sortByDeadline(a: Task, b: Task) {
-  return a.deadline.localeCompare(b.deadline);
+const PRIORITY_ORDER: Record<string, number> = {
+  urgent: 0,
+  high: 1,
+  medium: 2,
+  low: 3,
+};
+
+function sortByPriority(a: Task, b: Task) {
+  const priorityDifference =
+    (PRIORITY_ORDER[a.priority.toLowerCase()] ?? 4) -
+    (PRIORITY_ORDER[b.priority.toLowerCase()] ?? 4);
+
+  return priorityDifference || a.deadline.localeCompare(b.deadline);
 }
 
 export default function TasksPage() {
@@ -95,9 +108,9 @@ export default function TasksPage() {
       else future.push(t);
     }
 
-    today.sort(sortByDeadline);
-    tomorrow.sort(sortByDeadline);
-    future.sort(sortByDeadline);
+    today.sort(sortByPriority);
+    tomorrow.sort(sortByPriority);
+    future.sort(sortByPriority);
 
     return [
       { key: "today" as const, items: today },
@@ -125,6 +138,7 @@ export default function TasksPage() {
       requirements: reqs.join(", "),
       priority: t.priority || "low",
       deadline: t.deadline,
+      amount: String(t.amount ?? 0),
       notes: t.notes || "",
     });
     setShowRequirements(reqs.length > 0);
@@ -148,6 +162,7 @@ export default function TasksPage() {
         : [],
       priority: form.priority,
       deadline: form.deadline,
+      amount: Number(form.amount) || 0,
       notes: form.notes.trim() || undefined,
     };
 
@@ -250,6 +265,10 @@ export default function TasksPage() {
             Deliver Date:{" "}
             <span className="font-medium text-[var(--foreground)]">
               {formatDate(t.deadline)}
+            </span>
+            {" · Amount: "}
+            <span className="font-medium text-[var(--foreground)]">
+              {formatINR(t.amount ?? 0)}
             </span>
           </p>
         </div>
@@ -376,6 +395,16 @@ export default function TasksPage() {
                   setForm((f) => ({ ...f, deadline: e.target.value }))
                 }
                 required
+              />
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="Amount (₹)"
+                value={form.amount}
+                onChange={(e) =>
+                  setForm((f) => ({ ...f, amount: e.target.value }))
+                }
               />
               <select
                 className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"

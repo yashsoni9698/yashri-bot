@@ -162,7 +162,7 @@ export function createTask(
     requirements: input.requirements || [],
     priority: input.priority || "low",
     deadline: input.deadline,
-    amount: input.amount,
+    amount: input.amount ?? 0,
     notes: input.notes,
     tags: input.tags,
     createdAt: now,
@@ -469,13 +469,15 @@ export function savePayments(payments: Payment[]): void {
 }
 
 export function createPayment(
-  input: Omit<Payment, "id" | "createdAt" | "updatedAt">
+  input: Omit<Payment, "id" | "createdAt" | "updatedAt"> & {
+    createdAt?: string;
+  }
 ): Payment {
   const now = new Date().toISOString();
   const payment: Payment = {
     ...input,
     id: uuid(),
-    createdAt: now,
+    createdAt: input.createdAt || now,
     updatedAt: now,
   };
   const payments = getPayments();
