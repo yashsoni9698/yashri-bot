@@ -239,6 +239,17 @@ function snoozePostedOrSkip(
 function hasCompetingIntent(text: string): boolean {
   const t = text.toLowerCase();
   if (/\b(rath|yatra|festival|diwali|navratri|ekadashi)\b/i.test(t)) return true;
+  // Explicit add instructions carrying their own details (project name,
+  // full task phrasing) must reach the add-task handler, even when they
+  // mention Confast / Soni / Thought by.
+  if (/\bproject\s*name\s*[:=-]/i.test(t)) return true;
+  if (
+    /^add\b/i.test(t.trim()) &&
+    /\b(task|work)\b/i.test(t) &&
+    t.trim().length > 30
+  ) {
+    return true;
+  }
   if (
     /\b(create|add|make)\b/i.test(t) &&
     /\btask\b/i.test(t) &&

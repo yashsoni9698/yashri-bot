@@ -520,6 +520,78 @@ function parseSingleAddTask(segment: string): PlannedTask | null {
   };
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Explicit add with a "Project Name:" marker or an own-account mention, e.g.
+ * "Add Confast Website work in Later Task Project Name: Website Creation and R&D"
+ * → client: Confast Chemicals, project: Website Creation and R&D, deadline: later.
+ * These must create a task directly — never restart a posting nudge.
+ */
+function parseExplicitAddTask(segment: string): PlannedTask | null {
+  if (!/^add\b/i.test(segment)) return null;
+  if (/^add\s+\d+\s+(?:different\s+)?tasks?\b/i.test(segment)) return null;
+
+  const marker = segment.match(
+    /\b(?:project|task)\s*name\s*(?:is\s+)?[:=-]*\s*(.+)$/i
+  );
+  const head = marker ? segment.slice(0, marker.index) : segment;
+  const account = matchAccountFromText(head);
+  if (!marker && !account) return null;
+
+  let projectName = marker
+    ? marker[1].replace(/^["'`“”]+|["'`“”.!]+$/g, "").trim()
+    : "";
+
+  if (!projectName) {
+    // Derive the project from what's left after removing the account,
+    // schedule words and command noise: "Add Confast Website work in Later
+    // Task" → "Website work".
+    let rest = head.replace(/^add\b/i, " ");
+    if (account) {
+      for (const alias of [
+        account.displayName,
+        account.handle,
+        ...account.aliases,
+      ]) {
+        rest = rest.replace(
+          new RegExp(`\\b${escapeRegExp(alias)}\\b`, "gi"),
+          " "
+        );
+      }
+    }
+    rest = rest
+      .replace(/\b(?:in|to|for|on)\s+(?:the\s+)?(?:today|tomorrow|later)\b/gi, " ")
+      .replace(/\b(?:today|tomorrow|later)\b/gi, " ")
+      .replace(/\btasks?\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    const meaningful = rest
+      .replace(/\b(?:for|in|to|on|a|an|the|it|please)\b/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (meaningful.length < 3) return null;
+    projectName = meaningful;
+  }
+
+  let clientName = account?.displayName || "";
+  if (!clientName) {
+    const forMatch = head.match(/\bfor\s+(.+?)$/i);
+    clientName = forMatch
+      ? stripScheduleWords(forMatch[1]).replace(/\btasks?\b/gi, "").trim()
+      : "";
+  }
+
+  return {
+    projectName,
+    clientName: clientName || "General",
+    priority: priorityFromRaw(segment),
+    deadline: deadlineFromMessage(segment, 3),
+  };
+}
+
 function splitAddClauses(raw: string): string[] {
   return raw
     .split(/\s+and\s+(?=add\b)/i)
@@ -540,6 +612,11 @@ function tryHandleAddTasks(raw: string): CommandResult | null {
     const multi = parseMultiDifferentTasks(clause);
     if (multi?.length) {
       planned.push(...multi);
+      continue;
+    }
+    const explicit = parseExplicitAddTask(clause);
+    if (explicit) {
+      planned.push(explicit);
       continue;
     }
     const single = parseSingleAddTask(clause);
@@ -1410,6 +1487,20 @@ export function resolveCommand(message: string): CommandResult {
       reply: igOffer.reply,
       toasts: igOffer.toasts,
     };
+  }
+
+  // Explicit add instruction mentioning an own account (e.g. "Add Confast
+  // Website work in Later Task Project Name: Website Creation and R&D") —
+  // create the task directly instead of restarting a posting nudge.
+  // Posting nudges live in the notification bell.
+  if (
+    /^add\b/i.test(raw) &&
+    /\b(soni|thought|confast)\b/i.test(raw) &&
+    !/\bpayment\b/i.test(raw) &&
+    splitAddClauses(raw).some((c) => parseExplicitAddTask(c) !== null)
+  ) {
+    const explicitAdd = tryHandleAddTasks(raw);
+    if (explicitAdd) return explicitAdd;
   }
 
   // Start offer if user asks about posting / creating IG task for own accounts
