@@ -1,19 +1,16 @@
 import { Festival } from "@/lib/types";
-import { daysUntil } from "@/lib/utils";
+import { daysUntil, getZonedParts, todayISOLocal } from "@/lib/utils";
 import { readJsonFile, writeJsonFile, readMarkdown, writeMarkdown } from "@/lib/data/fs";
 import { ensureDataReady, paths } from "@/lib/data/paths";
 import { getSettings, updateSettings } from "@/lib/data/store";
 import { v4 as uuid } from "uuid";
 import { slugify } from "@/lib/utils";
 
-function toLocalISODate(d: Date): string {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
-/** Resolve MM-DD recurring festivals to next occurrence YYYY-MM-DD */
+/** Resolve MM-DD recurring festivals to next occurrence YYYY-MM-DD (IST calendar). */
 export function resolveFestivalDate(festival: Festival, from = new Date()): string {
   if (!festival.recurring && /^\d{4}-\d{2}-\d{2}$/.test(festival.date)) {
     return festival.date;
@@ -23,15 +20,13 @@ export function resolveFestivalDate(festival: Festival, from = new Date()): stri
     ? festival.date.slice(-5)
     : festival.date;
   const [mm, dd] = mmdd.split("-").map(Number);
-  const year = from.getFullYear();
-  let candidate = new Date(year, mm - 1, dd);
-  candidate.setHours(0, 0, 0, 0);
-  const today = new Date(from);
-  today.setHours(0, 0, 0, 0);
-  if (candidate < today) {
-    candidate = new Date(year + 1, mm - 1, dd);
+  const { year } = getZonedParts(from);
+  const todayKey = todayISOLocal(from);
+  let candidateKey = `${year}-${pad2(mm)}-${pad2(dd)}`;
+  if (candidateKey < todayKey) {
+    candidateKey = `${year + 1}-${pad2(mm)}-${pad2(dd)}`;
   }
-  return toLocalISODate(candidate);
+  return candidateKey;
 }
 
 export function getFestivals(): Festival[] {

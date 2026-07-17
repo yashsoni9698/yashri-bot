@@ -5,6 +5,42 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** App runs for India — always compute "today" / greetings in IST, not server UTC. */
+export const APP_TIMEZONE = "Asia/Kolkata";
+
+export type ZonedParts = {
+  year: number;
+  month: number;
+  day: number;
+  hour: number;
+};
+
+export function getZonedParts(
+  date = new Date(),
+  timeZone = APP_TIMEZONE
+): ZonedParts {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(date)
+      .filter((p) => p.type !== "literal")
+      .map((p) => [p.type, p.value])
+  ) as Record<string, string>;
+
+  return {
+    year: Number(parts.year),
+    month: Number(parts.month),
+    day: Number(parts.day),
+    hour: Number(parts.hour),
+  };
+}
+
 export function slugify(text: string): string {
   return text
     .toLowerCase()
@@ -14,9 +50,10 @@ export function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function greetingForHour(hour = new Date().getHours()): string {
-  if (hour < 12) return "Good Morning";
-  if (hour < 17) return "Good Afternoon";
+export function greetingForHour(hour?: number): string {
+  const h = hour ?? getZonedParts().hour;
+  if (h < 12) return "Good Morning";
+  if (h < 17) return "Good Afternoon";
   return "Good Evening";
 }
 
@@ -33,9 +70,10 @@ function pad2(n: number): string {
   return String(n).padStart(2, "0");
 }
 
-function todayISOLocal(): string {
-  const d = new Date();
-  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+/** Calendar date in APP_TIMEZONE (YYYY-MM-DD). */
+export function todayISOLocal(date = new Date()): string {
+  const { year, month, day } = getZonedParts(date);
+  return `${year}-${pad2(month)}-${pad2(day)}`;
 }
 
 /**
@@ -84,9 +122,9 @@ export function toStorageDate(raw?: string, fallbackToday = true): string {
 
   if (lower === "today") return todayISOLocal();
   if (lower === "tomorrow") {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const { year, month, day } = getZonedParts();
+    const next = new Date(Date.UTC(year, month - 1, day + 1));
+    return `${next.getUTCFullYear()}-${pad2(next.getUTCMonth() + 1)}-${pad2(next.getUTCDate())}`;
   }
 
   // YYYY-MM-DD
@@ -122,15 +160,18 @@ export function toStorageDate(raw?: string, fallbackToday = true): string {
 }
 
 export function daysUntil(dateStr: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Compare calendar dates in IST so Vercel UTC doesn't shift festivals by ±1 day
+  const { year, month, day } = getZonedParts();
+  const todayUtc = Date.UTC(year, month - 1, day);
   // Normalize DD-MM-YYYY so Date() doesn't mis-parse
   const iso = /^\d{2}-\d{2}-\d{4}$/.test(dateStr.trim())
     ? toStorageDate(dateStr, false)
     : dateStr;
-  const target = new Date(iso);
-  target.setHours(0, 0, 0, 0);
-  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const datePart = /^\d{4}-\d{2}-\d{2}/.exec(iso.trim())?.[0] ?? iso.trim();
+  const [y, m, d] = datePart.split("-").map(Number);
+  if (!y || !m || !d) return NaN;
+  const targetUtc = Date.UTC(y, m - 1, d);
+  return Math.round((targetUtc - todayUtc) / (1000 * 60 * 60 * 24));
 }
 
 /** Shared priority pill colors (Tasks, sidebar, dashboard). */

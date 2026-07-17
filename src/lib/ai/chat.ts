@@ -24,8 +24,7 @@ import {
   buildOwnInstagramSnapshot,
 } from "@/lib/instagram/pipeline";
 import { todoBucket } from "@/lib/task-toasts";
-import { daysUntil, greetingForHour } from "@/lib/utils";
-import { addDays, format } from "date-fns";
+import { daysUntil, getZonedParts, greetingForHour } from "@/lib/utils";
 
 function recentUserMessagesForLearn(sessionId?: string, limit = 6): string[] {
   const history = getChatHistory(sessionId || getActiveSessionId() || undefined);
@@ -211,7 +210,9 @@ export function buildGreeting() {
   const tomorrowTasks = tasks.filter(
     (t) => todoBucket(t.deadline) === "tomorrow"
   );
-  const horizon = format(addDays(new Date(), 10), "yyyy-MM-dd");
+  const { year, month, day } = getZonedParts();
+  const horizonDate = new Date(Date.UTC(year, month - 1, day + 10));
+  const horizon = `${horizonDate.getUTCFullYear()}-${String(horizonDate.getUTCMonth() + 1).padStart(2, "0")}-${String(horizonDate.getUTCDate()).padStart(2, "0")}`;
   const upcomingTasks = tasks.filter((t) => {
     if (todoBucket(t.deadline) !== "later") return false;
     return t.deadline <= horizon || daysUntil(t.deadline) <= 10;
