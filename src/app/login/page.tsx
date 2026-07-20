@@ -94,7 +94,7 @@ function LoginForm() {
       <div className="login-ai-aurora login-ai-aurora-center" aria-hidden />
 
       {/* Login — always centered */}
-      <main className="relative z-10 flex min-h-dvh items-center justify-center px-4 py-10 pb-[min(46vh,20rem)] md:pb-10">
+      <main className="relative z-10 flex min-h-dvh items-center justify-center px-4 py-10 pb-[min(54vh,22rem)] md:pb-10">
         <div className="w-full max-w-sm md:max-w-md">
           <header
             className="animate-fade-up mb-7 space-y-4 text-center"

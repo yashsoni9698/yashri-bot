@@ -38,11 +38,16 @@ const SPAWN_MS = 2600;
 const LIFETIME_MS = 5200;
 const MAX_BUBBLES = 4;
 
+type BubbleLane = {
+  id: number;
+  x: string;
+  tail: string;
+};
+
 type ActiveBubble = {
   id: number;
   label: string;
-  lane: (typeof LANES)[number];
-  mobile: boolean;
+  lane: BubbleLane;
 };
 
 export function LoginServiceBubbles() {
@@ -85,7 +90,6 @@ export function LoginServiceBubbles() {
           id: idRef.current++,
           label,
           lane,
-          mobile: mobileRef.current,
         };
 
         return [...current, bubble];
