@@ -27,9 +27,9 @@ const nav = [
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/payments", label: "Payments", icon: Wallet },
   { href: "/job-done", label: "Job Done", icon: Trophy },
+  { href: "/festivals", label: "Festivals", icon: CalendarDays },
   { href: "/quotations", label: "Quotation", icon: FileSpreadsheet },
   { href: "/invoices", label: "Invoice", icon: Receipt },
-  { href: "/festivals", label: "Festivals", icon: CalendarDays },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 

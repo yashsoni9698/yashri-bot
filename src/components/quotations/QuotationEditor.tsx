@@ -444,6 +444,52 @@ export function QuotationEditor({
     <div className="space-y-6">
       <Card>
         <h2 className="mb-4 text-sm font-semibold text-[var(--foreground)]">
+          Template
+        </h2>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[180px]">
+            <select
+              value={templateId}
+              onChange={(e) => onTemplateChange(e.target.value)}
+              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+            >
+              {templateList.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingTemplate || templateList.length >= 3}
+            >
+              {uploadingTemplate ? "Adding..." : "Add Template"}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleRemoveTemplate}
+              disabled={templateList.length <= 1}
+            >
+              Remove Template
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg"
+              className="hidden"
+              onChange={handleTemplateFilePick}
+            />
+          </div>
+        </div>
+      </Card>
+
+      <Card>
+        <h2 className="mb-4 text-sm font-semibold text-[var(--foreground)]">
           Client details
         </h2>
         <div className="grid gap-4 sm:grid-cols-3">
@@ -644,51 +690,9 @@ export function QuotationEditor({
       </Card>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-[180px]">
-          <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
-            Template
-          </label>
-          <select
-            value={templateId}
-            onChange={(e) => onTemplateChange(e.target.value)}
-            className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
-          >
-            {templateList.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="mt-5 flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingTemplate || templateList.length >= 3}
-          >
-            {uploadingTemplate ? "Adding..." : "Add Template"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleRemoveTemplate}
-            disabled={templateList.length <= 1}
-          >
-            Remove Template
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/png,image/jpeg,image/jpg"
-            className="hidden"
-            onChange={handleTemplateFilePick}
-          />
-        </div>
         <Button
           type="button"
           size="lg"
-          className="mt-5"
           onClick={handleGenerate}
           disabled={generating || !bgUrl}
         >
