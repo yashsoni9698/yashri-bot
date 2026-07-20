@@ -450,6 +450,22 @@ body {
   animation: yashri-ai-text-shine 5s linear infinite;
 }
 
+.login-ai-brand {
+  background: linear-gradient(
+    110deg,
+    #0f766e 0%,
+    #14b8a6 25%,
+    #f59e0b 50%,
+    #14b8a6 75%,
+    #0f766e 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: yashri-ai-text-shine 4s linear infinite;
+}
+
 .login-ai-logo {
   isolation: isolate;
 }
@@ -568,6 +584,20 @@ body {
   background-clip: text;
 }
 
+.dark .login-ai-brand {
+  background: linear-gradient(
+    110deg,
+    #2dd4bf 0%,
+    #5eead4 25%,
+    #fbbf24 50%,
+    #5eead4 75%,
+    #2dd4bf 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
 @keyframes yashri-robot-float {
   0%,
   100% {
@@ -665,6 +695,7 @@ body {
 @media (min-width: 768px) {
   .login-ai-robot-panel {
     width: 30rem;
+    padding-top: 1.5rem;
   }
 }
 
@@ -729,36 +760,30 @@ body {
   pointer-events: auto;
 }
 
+/* Mobile — rise from bottom of the screen */
 .login-service-bubbles {
-  position: absolute;
-  bottom: calc(100% - 1rem);
-  left: 50%;
-  z-index: 30;
-  width: min(92vw, 24rem);
-  height: 17rem;
-  transform: translateX(-50%);
   pointer-events: none;
-  overflow: visible;
-}
-
-@media (min-width: 768px) {
-  .login-service-bubbles {
-    width: 28rem;
-    height: 22rem;
-  }
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  z-index: 22;
+  width: min(100%, 22rem);
+  height: 6rem;
+  overflow: hidden;
+  transform: translateX(-50%);
 }
 
 .login-service-bubble {
   position: absolute;
   bottom: 0;
   left: 50%;
-  z-index: 30;
-  min-width: 8.5rem;
-  max-width: 12.5rem;
+  z-index: 8;
+  min-width: 7.5rem;
+  max-width: 11rem;
   border-radius: 1.1rem;
   border: 1px solid color-mix(in oklab, var(--accent) 34%, transparent);
   background: color-mix(in oklab, var(--surface) 96%, transparent);
-  padding: 0.625rem 0.95rem;
+  padding: 0.5rem 0.8rem;
   box-shadow:
     0 8px 28px rgba(15, 118, 110, 0.14),
     0 0 0 1px rgba(255, 255, 255, 0.05) inset;
@@ -766,14 +791,62 @@ body {
   transform-origin: bottom center;
 }
 
-.login-service-bubble-rise {
-  animation: login-bubble-rise-dissolve linear both;
+.login-service-bubble-rise-mobile {
+  animation: login-bubble-rise-mobile linear both;
 }
 
-@keyframes login-bubble-rise-dissolve {
+@keyframes login-bubble-rise-mobile {
   0% {
     opacity: 0;
-    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(12px)
+    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(18px)
+      scale(0.4);
+  }
+  14% {
+    opacity: 1;
+    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(0)
+      scale(1);
+  }
+  72% {
+    opacity: 1;
+    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(-3.25rem)
+      scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(-4.75rem)
+      scale(0.88);
+  }
+}
+
+/* Desktop — float near the bot head */
+@media (min-width: 768px) {
+  .login-service-bubbles {
+    position: absolute;
+    top: -1.5rem;
+    bottom: auto;
+    left: 50%;
+    width: 24rem;
+    height: 9rem;
+    transform: translateX(-50%);
+    overflow: visible;
+    z-index: 30;
+  }
+
+  .login-service-bubble {
+    min-width: 8.5rem;
+    max-width: 12.5rem;
+    padding: 0.625rem 0.95rem;
+  }
+
+  .login-service-bubble-rise-desktop {
+    animation: login-bubble-rise-desktop linear both;
+  }
+}
+
+@keyframes login-bubble-rise-desktop {
+  0% {
+    opacity: 0;
+    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(10px)
       scale(0.35);
   }
   14% {
@@ -783,38 +856,13 @@ body {
   }
   72% {
     opacity: 1;
-    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(-11rem)
+    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(-5.5rem)
       scale(1);
   }
   100% {
     opacity: 0;
-    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(-15.5rem)
+    transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(-7.5rem)
       scale(0.82);
-  }
-}
-
-@media (min-width: 768px) {
-  @keyframes login-bubble-rise-dissolve {
-    0% {
-      opacity: 0;
-      transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(16px)
-        scale(0.35);
-    }
-    14% {
-      opacity: 1;
-      transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(0)
-        scale(1);
-    }
-    72% {
-      opacity: 1;
-      transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(-14rem)
-        scale(1);
-    }
-    100% {
-      opacity: 0;
-      transform: translateX(calc(-50% + var(--bubble-x, 0px))) translateY(-19rem)
-        scale(0.82);
-    }
   }
 }
 

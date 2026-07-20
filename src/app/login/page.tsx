@@ -7,8 +7,6 @@ import { Bot, Loader2, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LoginAiRobot } from "@/components/auth/LoginAiRobot";
 
-const WAVE_DELAYS = ["0ms", "120ms", "240ms", "360ms", "480ms", "600ms"] as const;
-
 function AiLogo() {
   return (
     <div className="login-ai-logo relative mx-auto h-[4.75rem] w-[4.75rem] md:h-[5.25rem] md:w-[5.25rem]">
@@ -31,29 +29,18 @@ function AiLogo() {
 
 function AiStatusLine() {
   return (
-    <div className="space-y-2">
-      <p className="flex items-center justify-center gap-1.5 text-sm text-[var(--muted-foreground)]">
-        <Bot className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-        Your AI executive assistant
-        <span className="inline-flex items-center gap-0.5" aria-hidden>
-          <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
-          <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
-          <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
-        </span>
-      </p>
-      <div className="login-ai-waves" aria-hidden>
-        {WAVE_DELAYS.map((delay, i) => (
-          <span
-            key={i}
-            className="login-ai-wave-bar"
-            style={{
-              height: `${8 + (i % 3) * 4}px`,
-              animationDelay: delay,
-            }}
-          />
-        ))}
-      </div>
-    </div>
+    <p className="flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 text-sm text-[var(--muted-foreground)]">
+      <Bot className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+      <span>
+        AI Assistant of{" "}
+        <span className="login-ai-brand font-bold">Soni Creative</span>
+      </span>
+      <span className="inline-flex items-center gap-0.5" aria-hidden>
+        <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
+        <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
+        <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
+      </span>
+    </p>
   );
 }
 
@@ -94,7 +81,7 @@ function LoginForm() {
       <div className="login-ai-aurora login-ai-aurora-center" aria-hidden />
 
       {/* Login — always centered */}
-      <main className="relative z-10 flex min-h-dvh items-center justify-center px-4 py-10 pb-[min(54vh,22rem)] md:pb-10">
+      <main className="relative z-10 flex min-h-dvh items-center justify-center px-4 py-10 pb-[min(42vh,18rem)] md:pb-10">
         <div className="w-full max-w-sm md:max-w-md">
           <header
             className="animate-fade-up mb-7 space-y-4 text-center"
@@ -114,12 +101,8 @@ function LoginForm() {
             style={{ animationDelay: "120ms" }}
           >
             <div className="login-ai-card-inner p-6">
-              <form onSubmit={onSubmit} className="space-y-5">
-                <p className="text-center text-sm text-[var(--muted-foreground)]">
-                  Enter your site password to continue
-                </p>
-
-                <label className="block space-y-1.5 text-left">
+            <form onSubmit={onSubmit} className="space-y-5">
+              <label className="block space-y-1.5 text-left">
                   <span className="text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
                     Password
                   </span>

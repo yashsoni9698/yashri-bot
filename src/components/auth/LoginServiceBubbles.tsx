@@ -22,21 +22,22 @@ export const GRAPHIC_DESIGN_SERVICES = [
   "Letterhead Design",
 ] as const;
 
-const LANES = [
-  { id: 0, x: "-110px", tail: "login-service-bubble-tail-right" },
+const DESKTOP_LANES = [
+  { id: 0, x: "-92px", tail: "login-service-bubble-tail-right" },
   { id: 1, x: "0px", tail: "login-service-bubble-tail-center" },
-  { id: 2, x: "110px", tail: "login-service-bubble-tail-left" },
+  { id: 2, x: "92px", tail: "login-service-bubble-tail-left" },
 ] as const;
 
 const MOBILE_LANES = [
-  { id: 0, x: "-64px", tail: "login-service-bubble-tail-right" },
+  { id: 0, x: "-52px", tail: "login-service-bubble-tail-right" },
   { id: 1, x: "0px", tail: "login-service-bubble-tail-center" },
-  { id: 2, x: "64px", tail: "login-service-bubble-tail-left" },
+  { id: 2, x: "52px", tail: "login-service-bubble-tail-left" },
 ] as const;
 
-const SPAWN_MS = 2600;
-const LIFETIME_MS = 5200;
-const MAX_BUBBLES = 4;
+const SPAWN_MS = 2800;
+const MOBILE_LIFETIME_MS = 4800;
+const DESKTOP_LIFETIME_MS = 5200;
+const MAX_BUBBLES = 3;
 
 type BubbleLane = {
   id: number;
@@ -48,6 +49,7 @@ type ActiveBubble = {
   id: number;
   label: string;
   lane: BubbleLane;
+  mobile: boolean;
 };
 
 export function LoginServiceBubbles() {
@@ -67,16 +69,12 @@ export function LoginServiceBubbles() {
       mobileRef.current = mq.matches;
     };
     sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
 
-  useEffect(() => {
     function spawn() {
       setBubbles((current) => {
         if (current.length >= MAX_BUBBLES) return current;
 
-        const lanes = mobileRef.current ? MOBILE_LANES : LANES;
+        const lanes = mobileRef.current ? MOBILE_LANES : DESKTOP_LANES;
         const lane = lanes[laneRef.current % lanes.length];
         laneRef.current += 1;
 
@@ -86,19 +84,31 @@ export function LoginServiceBubbles() {
           ];
         serviceRef.current += 1;
 
-        const bubble: ActiveBubble = {
-          id: idRef.current++,
-          label,
-          lane,
-        };
-
-        return [...current, bubble];
+        return [
+          ...current,
+          {
+            id: idRef.current++,
+            label,
+            lane,
+            mobile: mobileRef.current,
+          },
+        ];
       });
+    }
+
+    function onViewportChange() {
+      sync();
+      setBubbles([]);
+      spawn();
     }
 
     spawn();
     const id = window.setInterval(spawn, SPAWN_MS);
-    return () => window.clearInterval(id);
+    mq.addEventListener("change", onViewportChange);
+    return () => {
+      window.clearInterval(id);
+      mq.removeEventListener("change", onViewportChange);
+    };
   }, []);
 
   return (
@@ -106,11 +116,18 @@ export function LoginServiceBubbles() {
       {bubbles.map((bubble) => (
         <div
           key={bubble.id}
-          className="login-service-bubble login-service-bubble-rise"
+          className={cn(
+            "login-service-bubble",
+            bubble.mobile
+              ? "login-service-bubble-rise-mobile"
+              : "login-service-bubble-rise-desktop"
+          )}
           style={
             {
               "--bubble-x": bubble.lane.x,
-              animationDuration: `${LIFETIME_MS}ms`,
+              animationDuration: `${
+                bubble.mobile ? MOBILE_LIFETIME_MS : DESKTOP_LIFETIME_MS
+              }ms`,
             } as CSSProperties
           }
           onAnimationEnd={() => removeBubble(bubble.id)}
