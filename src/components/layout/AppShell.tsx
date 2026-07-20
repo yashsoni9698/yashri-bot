@@ -91,9 +91,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <ToastProvider>
-      <div className="flex h-dvh flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)] md:h-screen md:flex-row">
+      <div className="flex h-dvh max-w-full flex-col overflow-hidden bg-[var(--background)] text-[var(--foreground)] md:h-screen md:flex-row">
         {/* Mobile top bar — md+ unchanged (no header) */}
-        <header className="flex shrink-0 items-center gap-1.5 border-b border-[var(--border)] bg-[var(--sidebar)] px-2.5 py-2.5 md:hidden">
+        <header className="flex shrink-0 items-center gap-1 border-b border-[var(--border)] bg-[var(--sidebar)] px-2 py-2 md:hidden">
           <button
             type="button"
             onClick={() => {
@@ -121,12 +121,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 setMobileNavOpen(false);
                 setMobileRightOpen(false);
               }}
-              className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-semibold text-[var(--accent-foreground)] shadow-[var(--shadow)] transition hover:brightness-105 active:scale-[0.98]"
+              className="inline-flex h-10 shrink-0 items-center justify-center gap-1.5 rounded-full px-2.5 text-sm font-semibold text-[var(--accent-foreground)] shadow-[var(--shadow)] transition hover:brightness-105 active:scale-[0.98] min-[400px]:px-3.5"
               style={{ background: "var(--accent-gradient)" }}
               aria-label="Open AI Chat"
             >
               <MessageSquare className="h-4 w-4" />
-              Chat
+              <span className="hidden min-[400px]:inline">Chat</span>
             </Link>
           )}
           <ThemeToggle
@@ -169,11 +169,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main
           className={
             isChat
-              ? "min-h-0 min-w-0 flex-1 overflow-hidden"
-              : "min-h-0 min-w-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
+              ? "flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-hidden"
+              : "min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto md:[scrollbar-gutter:stable]"
           }
         >
-          {children}
+          <div
+            className={cn(
+              "min-w-0 max-w-full",
+              isChat && "flex min-h-0 flex-1 flex-col"
+            )}
+          >
+            {children}
+          </div>
         </main>
 
         {showRight && (
@@ -188,7 +195,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             )}
             <div
               className={cn(
-                "fixed inset-y-0 right-0 z-50 flex h-full max-w-[min(100vw,22rem)] shadow-[var(--shadow-hover)] transition-transform duration-200 ease-out md:relative md:z-auto md:max-w-none md:shrink-0 md:shadow-none md:transition-none",
+                "fixed inset-y-0 right-0 z-50 flex h-full w-[min(100%,22rem)] shadow-[var(--shadow-hover)] transition-transform duration-200 ease-out md:relative md:z-auto md:w-auto md:max-w-none md:shrink-0 md:shadow-none md:transition-none",
                 mobileRightOpen
                   ? "translate-x-0"
                   : "translate-x-full md:translate-x-0"

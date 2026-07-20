@@ -410,7 +410,7 @@ export function ChatInterface() {
               rows={1}
               onChange={(e) => setInput(e.target.value)}
               placeholder="Ask me anything…"
-              className="max-h-[200px] min-h-[40px] min-w-0 flex-1 resize-none bg-transparent py-2.5 text-sm leading-5 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)]"
+              className="max-h-[200px] min-h-[40px] min-w-0 flex-1 resize-none bg-transparent py-2.5 text-base leading-5 text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] md:text-sm"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
                   e.preventDefault();

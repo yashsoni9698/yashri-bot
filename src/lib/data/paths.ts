@@ -31,4 +31,11 @@ export const paths = {
   instagramFollowups: () => `${VIRTUAL_ROOT}/instagram/followups.json`,
   instagramPendingOffer: () => `${VIRTUAL_ROOT}/instagram/pending-offer.json`,
   workSnoozes: () => `${VIRTUAL_ROOT}/notifications/work-snoozes.json`,
+  quotationTemplates: () => `${VIRTUAL_ROOT}/quotations/templates.json`,
+  quotationTemplateImage: (id: string, ext = "png") =>
+    `${VIRTUAL_ROOT}/quotations/templates/${id}.${ext}`,
+  invoiceTemplates: () => `${VIRTUAL_ROOT}/invoices/templates.json`,
+  invoiceTemplateImage: (id: string, ext = "png") =>
+    `${VIRTUAL_ROOT}/invoices/templates/${id}.${ext}`,
+  invoices: () => `${VIRTUAL_ROOT}/invoices/records.json`,
 };

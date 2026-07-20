@@ -233,6 +233,67 @@ export interface OwnInstagramSnapshot {
   weekStart: string;
 }
 
+export interface QuotationTemplate {
+  id: string;
+  name: string;
+  /** Virtual path to JPG bytes stored as base64 in file_store */
+  imagePath: string;
+  createdAt: string;
+}
+
+export type QuotationColumnType =
+  | "srNo"
+  | "description"
+  | "unitPrice"
+  | "qty"
+  | "lineTotal"
+  | "amount"
+  | "custom";
+
+export interface QuotationColumn {
+  id: string;
+  label: string;
+  type: QuotationColumnType;
+  /** Show ₹ prefix in this column values */
+  useRupee?: boolean;
+  /** User manually toggled rupee behavior */
+  rupeeManuallySet?: boolean;
+}
+
+export interface QuotationRow {
+  id: string;
+  cells: Record<string, string>;
+}
+
+export interface QuotationDraft {
+  templateId: string;
+  name: string;
+  mobile: string;
+  date: string;
+  discount: number;
+  columns: QuotationColumn[];
+  rows: QuotationRow[];
+  /** Present on generated invoices */
+  invoiceNumber?: string;
+}
+
+/** A saved invoice record */
+export interface InvoiceRecord {
+  id: string;
+  invoiceNumber: string;
+  templateId: string;
+  name: string;
+  mobile: string;
+  date: string;
+  discount: number;
+  columns: QuotationColumn[];
+  rows: QuotationRow[];
+  subTotal: number;
+  grandTotal: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 /** Custom work reminder — shows in the notification bell when due */
 export interface WorkSnooze {
   id: string;

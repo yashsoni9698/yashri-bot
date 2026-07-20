@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/layout/ThemeProvider";
@@ -19,6 +19,12 @@ export const metadata: Metadata = {
   title: "Yashri Bot | Soni Creative",
   description:
     "Personal AI executive assistant for Soni Creative — tasks, clients, payments, memory, and campaigns.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

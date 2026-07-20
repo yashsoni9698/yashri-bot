@@ -55,6 +55,7 @@ function normalizePath(filePath: string): string {
   const knownPrefixes = [
     "tasks/", "payments/", "clients/", "memory/", "calendar/",
     "settings/", "chat/", "uploads/", "instagram/", "notifications/",
+    "quotations/", "invoices/",
   ];
   for (const prefix of knownPrefixes) {
     const idx = normalized.indexOf(prefix);
@@ -98,6 +99,19 @@ export function writeMarkdown(filePath: string, content: string): void {
   const key = normalizePath(filePath);
   cache.set(key, content);
   persist(key, content);
+}
+
+export function readBinaryBase64(filePath: string): string | null {
+  const key = normalizePath(filePath);
+  if (!cache.has(key)) return null;
+  const cached = cache.get(key);
+  return cached && cached.length > 0 ? cached : null;
+}
+
+export function writeBinaryBase64(filePath: string, base64: string): void {
+  const key = normalizePath(filePath);
+  cache.set(key, base64);
+  persist(key, base64);
 }
 
 export function appendMarkdown(filePath: string, section: string): void {
