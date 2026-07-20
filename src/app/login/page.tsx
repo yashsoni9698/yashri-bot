@@ -1,53 +1,58 @@
 "use client";
 
-import { FormEvent, useState, type CSSProperties } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 import { Bot, Loader2, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { LoginAiRobot } from "@/components/auth/LoginAiRobot";
 
-const NEURAL_NODES = [
-  { top: "18%", left: "12%", delay: "0s", duration: "2.2s" },
-  { top: "32%", left: "78%", delay: "0.6s", duration: "2.8s" },
-  { top: "68%", left: "8%", delay: "1.1s", duration: "3.1s" },
-  { top: "74%", left: "86%", delay: "0.3s", duration: "2.5s" },
-  { top: "48%", left: "92%", delay: "1.4s", duration: "3.4s" },
-  { top: "82%", left: "42%", delay: "0.9s", duration: "2.6s" },
-] as const;
+const WAVE_DELAYS = ["0ms", "120ms", "240ms", "360ms", "480ms", "600ms"] as const;
 
-function LoginBackground() {
+function AiLogo() {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="login-bg-grid absolute inset-0 opacity-40" />
-      <div
-        className="animate-gradient-shift absolute -left-[20%] -top-[15%] h-[55%] w-[55%] rounded-full bg-[radial-gradient(circle,rgba(13,148,136,0.22),transparent_68%)] blur-2xl"
+    <div className="login-ai-logo relative mx-auto h-[4.75rem] w-[4.75rem] md:h-[5.25rem] md:w-[5.25rem]">
+      <div className="login-ai-logo-aurora absolute" aria-hidden />
+      <div className="login-ai-orbit absolute inset-[-6px]" aria-hidden>
+        <span className="login-ai-orbit-dot" />
+        <span className="login-ai-orbit-dot login-ai-orbit-dot-2" />
+      </div>
+      <span className="login-ai-ring absolute inset-0 rounded-2xl" aria-hidden />
+      <span
+        className="login-ai-ring login-ai-ring-2 absolute inset-0 rounded-2xl"
+        aria-hidden
       />
-      <div
-        className="animate-gradient-shift absolute -bottom-[10%] -right-[15%] h-[50%] w-[50%] rounded-full bg-[radial-gradient(circle,rgba(180,83,9,0.14),transparent_68%)] blur-2xl"
-        style={{ animationDelay: "-3s" }}
-      />
-      <div
-        className="animate-orb-float absolute left-[18%] top-[22%] h-28 w-28 rounded-full bg-[radial-gradient(circle,rgba(45,212,191,0.18),transparent_70%)] blur-xl md:h-36 md:w-36"
-        style={{ "--orb-dx": "14px", "--orb-dy": "-22px", "--orb-duration": "9s" } as CSSProperties}
-      />
-      <div
-        className="animate-orb-float absolute bottom-[20%] right-[14%] h-24 w-24 rounded-full bg-[radial-gradient(circle,rgba(251,191,36,0.12),transparent_70%)] blur-xl md:h-32 md:w-32"
-        style={{ "--orb-dx": "-16px", "--orb-dy": "18px", "--orb-duration": "11s", animationDelay: "-4s" } as CSSProperties}
-      />
-      {NEURAL_NODES.map((node, i) => (
-        <span
-          key={i}
-          className="animate-node-pulse absolute h-1.5 w-1.5 rounded-full bg-[var(--accent)]"
-          style={{
-            top: node.top,
-            left: node.left,
-            animationDelay: node.delay,
-            "--node-duration": node.duration,
-          } as CSSProperties}
-        />
-      ))}
-      <div className="animate-scan-line absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[var(--accent)]/10 to-transparent" />
+      <div className="bg-accent-gradient relative z-10 flex h-full w-full items-center justify-center rounded-2xl text-[var(--accent-foreground)] shadow-[0_8px_32px_rgba(15,118,110,0.25)]">
+        <Sparkles className="login-ai-sparkle h-7 w-7 md:h-8 md:w-8" />
+      </div>
+    </div>
+  );
+}
+
+function AiStatusLine() {
+  return (
+    <div className="space-y-2">
+      <p className="flex items-center justify-center gap-1.5 text-sm text-[var(--muted-foreground)]">
+        <Bot className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+        Your AI executive assistant
+        <span className="inline-flex items-center gap-0.5" aria-hidden>
+          <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
+          <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
+          <span className="login-ai-status-dot h-1 w-1 rounded-full bg-[var(--accent-strong)]" />
+        </span>
+      </p>
+      <div className="login-ai-waves" aria-hidden>
+        {WAVE_DELAYS.map((delay, i) => (
+          <span
+            key={i}
+            className="login-ai-wave-bar"
+            style={{
+              height: `${8 + (i % 3) * 4}px`,
+              animationDelay: delay,
+            }}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -85,91 +90,96 @@ function LoginForm() {
   }
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden px-4 py-8 sm:py-16">
-      <LoginBackground />
+    <div className="relative min-h-dvh overflow-x-hidden">
+      <div className="login-ai-aurora login-ai-aurora-center" aria-hidden />
 
-      <div className="relative w-full max-w-sm">
-        <header
-          className="animate-fade-up mb-6 space-y-4 text-center"
-          style={{ animationDelay: "0ms" }}
-        >
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--accent-gradient)] text-[var(--accent-foreground)] animate-glow-pulse md:h-[4.5rem] md:w-[4.5rem]">
-            <Sparkles className="h-7 w-7 animate-sparkle-spin md:h-8 md:w-8" />
-          </div>
-          <div className="space-y-2">
-            <p className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight text-[var(--foreground)] md:text-4xl">
-              Yashri
-            </p>
-            <p className="flex items-center justify-center gap-1.5 text-sm text-[var(--muted-foreground)]">
-              <Bot className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-              Your AI executive assistant
-            </p>
-          </div>
-        </header>
-
-        <Card
-          className="animate-fade-up rounded-[var(--radius-soft)] p-6 shadow-[var(--shadow)] backdrop-blur-md"
-          style={{ animationDelay: "120ms" }}
-        >
-          <form onSubmit={onSubmit} className="space-y-5">
-            <p className="text-center text-sm text-[var(--muted-foreground)]">
-              Enter your site password to continue
-            </p>
-
-            <label className="block space-y-1.5 text-left">
-              <span className="text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
-                Password
-              </span>
-              <Input
-                type="password"
-                autoFocus
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="rounded-xl py-2.5 text-base md:text-sm"
-                placeholder="Site password"
-                style={{ fontSize: "16px" }}
-              />
-            </label>
-
-            {error ? (
-              <p
-                className="animate-fade-up text-center text-sm text-red-600 dark:text-red-400"
-                role="alert"
-              >
-                {error}
+      {/* Login — always centered */}
+      <main className="relative z-10 flex min-h-dvh items-center justify-center px-4 py-10 pb-[min(46vh,20rem)] md:pb-10">
+        <div className="w-full max-w-sm md:max-w-md">
+          <header
+            className="animate-fade-up mb-7 space-y-4 text-center"
+            style={{ animationDelay: "0ms" }}
+          >
+            <AiLogo />
+            <div className="space-y-3">
+              <p className="login-ai-title font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight md:text-4xl">
+                Yashri
               </p>
-            ) : null}
+              <AiStatusLine />
+            </div>
+          </header>
 
-            <button
-              type="submit"
-              disabled={loading || !password.trim()}
-              className="group relative w-full overflow-hidden rounded-xl bg-[var(--accent-gradient)] px-4 py-2.5 text-base font-semibold text-white transition enabled:hover:opacity-90 disabled:opacity-50 md:text-sm"
-            >
-              <span
-                aria-hidden
-                className="pointer-events-none absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-0 animate-shimmer group-hover:opacity-100 group-disabled:opacity-0"
-              />
-              <span className="relative inline-flex items-center justify-center gap-2">
-                {loading ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Signing in…
-                  </>
-                ) : (
-                  "Unlock"
-                )}
-              </span>
-            </button>
-          </form>
-        </Card>
+          <div
+            className="login-ai-card animate-fade-up"
+            style={{ animationDelay: "120ms" }}
+          >
+            <div className="login-ai-card-inner p-6">
+              <form onSubmit={onSubmit} className="space-y-5">
+                <p className="text-center text-sm text-[var(--muted-foreground)]">
+                  Enter your site password to continue
+                </p>
 
-        <p
-          className="animate-fade-up mt-5 text-center text-xs text-[var(--muted-foreground)]"
-          style={{ animationDelay: "240ms" }}
-        >
-          Secured access for Soni Creative
-        </p>
+                <label className="block space-y-1.5 text-left">
+                  <span className="text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
+                    Password
+                  </span>
+                  <Input
+                    type="password"
+                    autoFocus
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="rounded-xl border-[var(--border)] bg-[var(--surface)] py-2.5 text-base md:text-sm"
+                    placeholder="Site password"
+                    style={{ fontSize: "16px" }}
+                  />
+                </label>
+
+                {error ? (
+                  <p
+                    className="animate-fade-up text-center text-sm text-red-600 dark:text-red-400"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={loading || !password.trim()}
+                  className="bg-accent-gradient group relative w-full overflow-hidden rounded-xl px-4 py-2.5 text-base font-semibold text-white shadow-[0_4px_20px_rgba(15,118,110,0.3)] transition enabled:hover:opacity-90 enabled:hover:shadow-[0_6px_28px_rgba(15,118,110,0.38)] disabled:cursor-not-allowed disabled:opacity-60 md:text-sm"
+                >
+                  <span
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 translate-x-[-100%] bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-700 group-hover:translate-x-[100%] group-disabled:translate-x-[-100%]"
+                  />
+                  <span className="relative inline-flex items-center justify-center gap-2">
+                    {loading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Authenticating…
+                      </>
+                    ) : (
+                      "Unlock"
+                    )}
+                  </span>
+                </button>
+              </form>
+            </div>
+          </div>
+
+          <p
+            className="animate-fade-up mt-5 text-center text-xs text-[var(--muted-foreground)]"
+            style={{ animationDelay: "240ms" }}
+          >
+            Secured access for Soni Creative
+          </p>
+        </div>
+      </main>
+
+      {/* Robot — bottom center on mobile, bottom left on desktop */}
+      <div className="login-robot-anchor fixed bottom-0 left-1/2 z-20 -translate-x-1/2 pb-3 md:left-8 md:translate-x-0 lg:left-12 lg:pb-6">
+        <LoginAiRobot />
       </div>
     </div>
   );
