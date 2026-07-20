@@ -147,6 +147,96 @@ body {
   }
 }
 
+@keyframes yashri-gradient-shift {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1) translate(0, 0);
+  }
+  33% {
+    opacity: 0.85;
+    transform: scale(1.08) translate(2%, -1%);
+  }
+  66% {
+    opacity: 0.7;
+    transform: scale(0.96) translate(-1%, 2%);
+  }
+}
+
+@keyframes yashri-orb-float {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(var(--orb-dx, 12px), var(--orb-dy, -18px)) scale(1.06);
+  }
+}
+
+@keyframes yashri-glow-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(15, 118, 110, 0.35),
+      0 8px 24px rgba(15, 118, 110, 0.2);
+  }
+  50% {
+    box-shadow:
+      0 0 0 10px rgba(15, 118, 110, 0),
+      0 12px 32px rgba(15, 118, 110, 0.28);
+  }
+}
+
+@keyframes yashri-sparkle-spin {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: rotate(8deg) scale(1.08);
+    opacity: 0.88;
+  }
+}
+
+@keyframes yashri-shimmer {
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
+}
+
+@keyframes yashri-node-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes yashri-scan-line {
+  0% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.35;
+  }
+  85% {
+    opacity: 0.35;
+  }
+  100% {
+    transform: translateY(100vh);
+    opacity: 0;
+  }
+}
+
 .animate-fade-up {
   animation: yashri-fade-up 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -169,4 +259,61 @@ body {
 .card-lift:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-hover);
+}
+
+.animate-gradient-shift {
+  animation: yashri-gradient-shift 8s ease-in-out infinite;
+}
+
+.animate-orb-float {
+  animation: yashri-orb-float var(--orb-duration, 7s) ease-in-out infinite;
+}
+
+.animate-glow-pulse {
+  animation: yashri-glow-pulse 2.8s ease-in-out infinite;
+}
+
+.animate-sparkle-spin {
+  animation: yashri-sparkle-spin 3.5s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background-size: 200% auto;
+  animation: yashri-shimmer 3s linear infinite;
+}
+
+.animate-node-pulse {
+  animation: yashri-node-pulse var(--node-duration, 2.4s) ease-in-out infinite;
+}
+
+.animate-scan-line {
+  animation: yashri-scan-line 6s ease-in-out infinite;
+}
+
+.login-bg-grid {
+  background-image: radial-gradient(
+    circle at center,
+    color-mix(in oklab, var(--accent) 18%, transparent) 1px,
+    transparent 1px
+  );
+  background-size: 28px 28px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 75%);
+}
+
+.dark .animate-glow-pulse {
+  animation-name: yashri-glow-pulse-dark;
+}
+
+@keyframes yashri-glow-pulse-dark {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0 rgba(45, 212, 191, 0.3),
+      0 8px 24px rgba(45, 212, 191, 0.15);
+  }
+  50% {
+    box-shadow:
+      0 0 0 10px rgba(45, 212, 191, 0),
+      0 12px 32px rgba(45, 212, 191, 0.22);
+  }
 }

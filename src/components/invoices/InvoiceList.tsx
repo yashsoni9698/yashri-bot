@@ -5,7 +5,10 @@ import {
   ChevronDown,
   ChevronRight,
   Eye,
+  FileImage,
   FileSpreadsheet,
+  FileText,
+  RefreshCw,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,10 +16,13 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toaster";
+import { exportQuotationJpg, exportQuotationPdf } from "@/lib/quotations/export";
+import { QUOTATION_H, QUOTATION_W } from "@/lib/quotations/render";
 import {
   formatRupee,
   columnWidthClass,
@@ -26,7 +32,12 @@ import {
   rowLineTotal,
 } from "@/lib/quotations/utils";
 import { exportInvoicesToExcel } from "@/lib/invoices/export";
-import type { InvoiceRecord, QuotationColumn, QuotationRow } from "@/lib/types";
+import type {
+  InvoiceRecord,
+  QuotationColumn,
+  QuotationDraft,
+  QuotationRow,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "summary" | "details";
@@ -83,6 +94,19 @@ type DetailRow = {
   columns: QuotationColumn[];
   row: QuotationRow;
 };
+
+function invoiceToDraft(inv: InvoiceRecord): QuotationDraft {
+  return {
+    templateId: inv.templateId,
+    name: inv.name,
+    mobile: inv.mobile,
+    date: inv.date,
+    discount: inv.discount,
+    columns: inv.columns,
+    rows: inv.rows,
+    invoiceNumber: inv.invoiceNumber,
+  };
+}
 
 function buildDetailRows(invoices: InvoiceRecord[]): DetailRow[] {
   const rows: DetailRow[] = [];
@@ -168,6 +192,12 @@ export function InvoiceList() {
   const [viewMode, setViewMode] = useState<ViewMode>("summary");
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [viewInvoice, setViewInvoice] = useState<InvoiceRecord | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewDraft, setPreviewDraft] = useState<QuotationDraft | null>(null);
+  const [previewBgUrl, setPreviewBgUrl] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<"jpg" | "pdf" | null>(null);
 
   const detailRows = useMemo(() => buildDetailRows(invoices), [invoices]);
   const detailColumns = useMemo(() => {
@@ -197,6 +227,55 @@ export function InvoiceList() {
   useEffect(() => {
     load();
   }, []);
+
+  async function handleGenerateAgain(inv: InvoiceRecord) {
+    setGeneratingId(inv.id);
+    try {
+      const res = await fetch(
+        `/api/invoices/templates?id=${inv.templateId}&image=1`
+      );
+      const data = await res.json();
+      if (!data.dataUrl) {
+        toast("Could not load template");
+        return;
+      }
+      const draft = invoiceToDraft(inv);
+      const { renderQuotationCanvas } = await import("@/lib/quotations/render");
+      const canvas = await renderQuotationCanvas(draft, data.dataUrl);
+      const url = canvas.toDataURL("image/jpeg", 0.92);
+      setPreviewDraft(draft);
+      setPreviewBgUrl(data.dataUrl);
+      setPreviewUrl(url);
+      setPreviewOpen(true);
+      toast("Invoice generated");
+    } catch {
+      toast("Could not generate invoice");
+    } finally {
+      setGeneratingId(null);
+    }
+  }
+
+  async function handleDownload(type: "jpg" | "pdf") {
+    if (!previewDraft || !previewBgUrl) return;
+    setExporting(type);
+    try {
+      const safeName =
+        previewDraft.invoiceNumber?.trim() ||
+        previewDraft.name.trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-") ||
+        "invoice";
+      if (type === "jpg") {
+        await exportQuotationJpg(previewDraft, previewBgUrl, `${safeName}.jpg`);
+        toast("JPG downloaded");
+      } else {
+        await exportQuotationPdf(previewDraft, previewBgUrl, `${safeName}.pdf`);
+        toast("PDF downloaded");
+      }
+    } catch {
+      toast("Export failed — try Generate Again");
+    } finally {
+      setExporting(null);
+    }
+  }
 
   async function handleDelete(id: string) {
     if (!window.confirm("Delete this invoice?")) return;
@@ -301,7 +380,7 @@ export function InvoiceList() {
                 <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                   Grand Total
                 </th>
-                <th className="w-20 px-2 py-3" />
+                <th className="w-44 px-2 py-3" />
               </tr>
             </thead>
             <tbody>
@@ -351,6 +430,22 @@ export function InvoiceList() {
                       </td>
                       <td className="px-2 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleGenerateAgain(inv)}
+                            disabled={generatingId === inv.id}
+                            className="h-7 px-2 text-xs"
+                          >
+                            <RefreshCw
+                              className={cn(
+                                "h-3 w-3",
+                                generatingId === inv.id && "animate-spin"
+                              )}
+                            />
+                            {generatingId === inv.id ? "Generating…" : "Generate Again"}
+                          </Button>
                           <button
                             type="button"
                             onClick={() => setViewInvoice(inv)}
@@ -488,6 +583,62 @@ export function InvoiceList() {
           </table>
         </div>
       )}
+
+      <Dialog
+        open={previewOpen}
+        onOpenChange={(open) => {
+          setPreviewOpen(open);
+          if (!open) {
+            setPreviewUrl(null);
+            setPreviewDraft(null);
+            setPreviewBgUrl(null);
+          }
+        }}
+      >
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileSpreadsheet className="h-5 w-5" />
+              Invoice preview
+            </DialogTitle>
+            <DialogDescription>
+              Regenerated from saved invoice details. Download as JPG or PDF.
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewUrl && (
+            <div className="flex justify-center rounded-lg border border-[var(--border)] bg-[var(--muted)] p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewUrl}
+                alt="Invoice preview"
+                className="max-h-[60vh] w-auto shadow-md"
+                style={{ aspectRatio: `${QUOTATION_W} / ${QUOTATION_H}` }}
+              />
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={exporting !== null}
+              onClick={() => handleDownload("jpg")}
+            >
+              <FileImage className="h-4 w-4" />
+              {exporting === "jpg" ? "Downloading…" : "Download JPG"}
+            </Button>
+            <Button
+              type="button"
+              disabled={exporting !== null}
+              onClick={() => handleDownload("pdf")}
+            >
+              <FileText className="h-4 w-4" />
+              {exporting === "pdf" ? "Downloading…" : "Download PDF"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={Boolean(viewInvoice)} onOpenChange={(o) => !o && setViewInvoice(null)}>
         <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
