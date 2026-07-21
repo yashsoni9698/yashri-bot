@@ -2,6 +2,9 @@ import { jsPDF } from "jspdf";
 import type { QuotationDraft } from "@/lib/types";
 import { renderQuotationCanvas } from "@/lib/quotations/render";
 
+/** Maximum JPEG quality for exports (1 = no extra compression). */
+export const EXPORT_IMAGE_QUALITY = 1;
+
 export async function exportQuotationJpg(
   quotation: QuotationDraft,
   bgDataUrl: string,
@@ -9,7 +12,7 @@ export async function exportQuotationJpg(
 ): Promise<void> {
   const canvas = await renderQuotationCanvas(quotation, bgDataUrl);
   const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob((b) => resolve(b), "image/jpeg", 0.95)
+    canvas.toBlob((b) => resolve(b), "image/jpeg", EXPORT_IMAGE_QUALITY)
   );
   if (!blob) throw new Error("Could not create JPG");
   triggerDownload(blob, filename);
@@ -21,17 +24,16 @@ export async function exportQuotationPdf(
   filename = "quotation.pdf"
 ): Promise<void> {
   const canvas = await renderQuotationCanvas(quotation, bgDataUrl);
-  const imgData = canvas.toDataURL("image/jpeg", 0.95);
+  const imgData = canvas.toDataURL("image/png");
 
   const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4",
+    orientation: canvas.width >= canvas.height ? "landscape" : "portrait",
+    unit: "px",
+    format: [canvas.width, canvas.height],
+    compress: false,
   });
 
-  const pageW = pdf.internal.pageSize.getWidth();
-  const pageH = pdf.internal.pageSize.getHeight();
-  pdf.addImage(imgData, "JPEG", 0, 0, pageW, pageH);
+  pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
   pdf.save(filename);
 }
 

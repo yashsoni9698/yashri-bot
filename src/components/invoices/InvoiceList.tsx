@@ -21,7 +21,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toaster";
-import { exportQuotationJpg, exportQuotationPdf } from "@/lib/quotations/export";
+import {
+  EXPORT_IMAGE_QUALITY,
+  exportQuotationJpg,
+  exportQuotationPdf,
+} from "@/lib/quotations/export";
 import { QUOTATION_H, QUOTATION_W } from "@/lib/quotations/render";
 import {
   formatRupee,
@@ -242,7 +246,7 @@ export function InvoiceList() {
       const draft = invoiceToDraft(inv);
       const { renderQuotationCanvas } = await import("@/lib/quotations/render");
       const canvas = await renderQuotationCanvas(draft, data.dataUrl);
-      const url = canvas.toDataURL("image/jpeg", 0.92);
+      const url = canvas.toDataURL("image/jpeg", EXPORT_IMAGE_QUALITY);
       setPreviewDraft(draft);
       setPreviewBgUrl(data.dataUrl);
       setPreviewUrl(url);

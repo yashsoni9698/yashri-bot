@@ -35,20 +35,27 @@ function wrapText(
   maxWidth: number
 ): string[] {
   if (!text.trim()) return [""];
-  const words = text.split(/\s+/);
+  const paragraphs = text.split(/\n/);
   const lines: string[] = [];
-  let line = "";
-  for (const word of words) {
-    const test = line ? `${line} ${word}` : word;
-    if (ctx.measureText(test).width > maxWidth && line) {
-      lines.push(line);
-      line = word;
-    } else {
-      line = test;
+  for (const paragraph of paragraphs) {
+    if (!paragraph.trim()) {
+      lines.push("");
+      continue;
     }
+    const words = paragraph.split(/\s+/);
+    let line = "";
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    }
+    if (line) lines.push(line);
   }
-  if (line) lines.push(line);
-  return lines;
+  return lines.length ? lines : [""];
 }
 
 type ColLayout = {
@@ -84,14 +91,16 @@ function buildLayout(columns: QuotationColumn[], tableWidth: number): ColLayout[
     const align: ColLayout["align"] =
       col.type === "srNo"
         ? "center"
-        : col.type === "qty"
+        : col.type === "description"
           ? "center"
-          : col.type === "unitPrice" ||
-              col.type === "lineTotal" ||
-              col.type === "amount" ||
-              col.useRupee
-            ? "right"
-            : "left";
+          : col.type === "qty"
+            ? "center"
+            : col.type === "unitPrice" ||
+                col.type === "lineTotal" ||
+                col.type === "amount" ||
+                col.useRupee
+              ? "right"
+              : "left";
     return { col, width, align };
   });
 }
@@ -174,13 +183,19 @@ export async function renderQuotationCanvas(
   quotation: QuotationDraft,
   bgDataUrl: string
 ): Promise<HTMLCanvasElement> {
+  const bg = await loadImage(bgDataUrl);
+  const w = bg.naturalWidth || QUOTATION_W;
+  const h = bg.naturalHeight || QUOTATION_H;
+
   const canvas = document.createElement("canvas");
-  canvas.width = QUOTATION_W;
-  canvas.height = QUOTATION_H;
+  canvas.width = w;
+  canvas.height = h;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Canvas not supported");
 
-  const bg = await loadImage(bgDataUrl);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.scale(w / QUOTATION_W, h / QUOTATION_H);
   ctx.drawImage(bg, 0, 0, QUOTATION_W, QUOTATION_H);
 
   const tableWidth = QUOTATION_W - PAD_X * 2;
@@ -256,7 +271,11 @@ export async function renderQuotationCanvas(
 
     layout.forEach(({ col, width, align }, i) => {
       const text = cellText(row, col, rowIndex);
-      const textY = y + (rowH - LINE_H) / 2;
+      ctx.font = `11px ${FONT}`;
+      const inner = width - 8;
+      const lines = wrapText(ctx, text, inner);
+      const blockH = Math.max(LINE_H, lines.length * LINE_H);
+      const textY = y + (rowH - blockH) / 2;
       drawTextInCell(ctx, text, colX[i], textY, width, align);
     });
     y += rowH;
@@ -267,8 +286,7 @@ export async function renderQuotationCanvas(
   drawHRule(ctx, y, PAD_X, tableWidth);
   y += 10;
 
-  const summaryW = 180;
-  const summaryX = PAD_X + tableWidth - summaryW;
+  const LABEL_VALUE_GAP = 12;
   const summaryLines: Array<{ label: string; value: string; bold: boolean }> = [
     { label: "Sub Total", value: formatRupee(subTotal), bold: false },
   ];
@@ -285,13 +303,17 @@ export async function renderQuotationCanvas(
     bold: true,
   });
 
+  const tableRight = PAD_X + tableWidth;
   summaryLines.forEach((line, i) => {
     const lineY = y + i * 22;
     ctx.font = line.bold ? `bold 12px ${FONT}` : `11px ${FONT}`;
     ctx.fillStyle = INK;
-    ctx.fillText(line.label, summaryX, lineY);
-    const tw = ctx.measureText(line.value).width;
-    ctx.fillText(line.value, summaryX + summaryW - tw, lineY);
+    const valueW = ctx.measureText(line.value).width;
+    const labelW = ctx.measureText(line.label).width;
+    const valueX = tableRight - valueW;
+    const labelX = valueX - LABEL_VALUE_GAP - labelW;
+    ctx.fillText(line.label, labelX, lineY);
+    ctx.fillText(line.value, valueX, lineY);
   });
 
   return canvas;

@@ -2,6 +2,7 @@
 
 import {
   type ChangeEvent,
+  type KeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -31,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toaster";
 import {
+  EXPORT_IMAGE_QUALITY,
   exportQuotationJpg,
   exportQuotationPdf,
 } from "@/lib/quotations/export";
@@ -56,6 +58,29 @@ import { cn } from "@/lib/utils";
 
 const cellInputClass =
   "w-full min-w-0 rounded-md border border-transparent bg-transparent px-1.5 py-0 text-sm outline-none transition-colors hover:border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--muted)]";
+
+const cellTextareaClass =
+  "w-full min-w-0 resize-none rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm leading-snug outline-none transition-colors hover:border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--muted)]";
+
+function insertNewlineAtCursor(
+  e: KeyboardEvent<HTMLTextAreaElement>,
+  value: string,
+  onChange: (next: string) => void
+) {
+  if (e.key !== "Enter" || (!e.ctrlKey && !e.altKey)) return false;
+  e.preventDefault();
+  const el = e.currentTarget;
+  const start = el.selectionStart ?? value.length;
+  const end = el.selectionEnd ?? value.length;
+  const next = `${value.slice(0, start)}\n${value.slice(end)}`;
+  onChange(next);
+  requestAnimationFrame(() => {
+    el.selectionStart = el.selectionEnd = start + 1;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  });
+  return true;
+}
 
 type QuotationEditorProps = {
   templates: QuotationTemplate[];
@@ -284,6 +309,33 @@ export function QuotationEditor({
         />
       );
     }
+    if (col.type === "description" || col.type === "custom") {
+      const value = row.cells[col.id] || "";
+      return (
+        <textarea
+          rows={1}
+          value={value}
+          onChange={(e) => {
+            updateCell(row.id, col.id, e.target.value);
+            e.target.style.height = "auto";
+            e.target.style.height = `${e.target.scrollHeight}px`;
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            if (e.ctrlKey || e.altKey) {
+              insertNewlineAtCursor(e, value, (next) =>
+                updateCell(row.id, col.id, next)
+              );
+            } else {
+              e.preventDefault();
+            }
+          }}
+          placeholder="Ctrl+Enter for new line"
+          className={cn(cellTextareaClass, "text-center")}
+          style={{ minHeight: "2rem" }}
+        />
+      );
+    }
     return (
       <input
         type="text"
@@ -319,7 +371,7 @@ export function QuotationEditor({
       const draft = buildDraft();
       const { renderQuotationCanvas } = await import("@/lib/quotations/render");
       const canvas = await renderQuotationCanvas(draft, bgUrl);
-      const url = canvas.toDataURL("image/jpeg", 0.92);
+      const url = canvas.toDataURL("image/jpeg", EXPORT_IMAGE_QUALITY);
       setPreviewUrl(url);
       setPreviewOpen(true);
       if (onSave) {
