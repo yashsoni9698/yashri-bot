@@ -89,6 +89,8 @@ type QuotationEditorProps = {
   templatesApiBase?: string;
   templateStorageKey?: string;
   showInvoiceNumber?: boolean;
+  prefillDraft?: Partial<QuotationDraft> & { invoiceNumber?: string };
+  prefillToken?: string;
   onSave?: (draft: QuotationDraft & { invoiceNumber?: string }, subTotal: number, grandTotal: number) => Promise<void>;
 };
 
@@ -99,6 +101,8 @@ export function QuotationEditor({
   templatesApiBase = "/api/quotations/templates",
   templateStorageKey = "quotation:selectedTemplateId",
   showInvoiceNumber = false,
+  prefillDraft,
+  prefillToken,
   onSave,
 }: QuotationEditorProps) {
   const [templateList, setTemplateList] = useState<QuotationTemplate[]>(templates);
@@ -150,6 +154,23 @@ export function QuotationEditor({
       );
     }
   }, [templateId, loadTemplateImage]);
+
+  useEffect(() => {
+    if (!prefillDraft) return;
+    setQuotation((q) => ({
+      ...q,
+      ...prefillDraft,
+      templateId: prefillDraft.templateId || q.templateId,
+      columns: prefillDraft.columns || q.columns,
+      rows: prefillDraft.rows || q.rows,
+      discount:
+        typeof prefillDraft.discount === "number"
+          ? prefillDraft.discount
+          : q.discount,
+    }));
+    if (prefillDraft.templateId) setTemplateId(prefillDraft.templateId);
+    if (showInvoiceNumber) setInvoiceNumber(prefillDraft.invoiceNumber || "");
+  }, [prefillDraft, prefillToken, showInvoiceNumber]);
 
   const rows = useMemo(
     () => renumberRows(quotation.rows),

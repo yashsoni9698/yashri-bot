@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Check,
   Pencil,
   Plus,
+  Receipt,
   RotateCcw,
   Search,
   Trash2,
@@ -59,6 +61,7 @@ const emptyPaymentForm = {
 };
 
 export default function PaymentsPage() {
+  const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -246,6 +249,16 @@ export default function PaymentsPage() {
     } finally {
       setBusyId(null);
     }
+  }
+
+  function goToInvoicePrefill(payment: Payment) {
+    const params = new URLSearchParams({
+      source: "task",
+      name: payment.clientName || "",
+      project: payment.projectName || "",
+      amount: payment.amount != null ? String(payment.amount) : "",
+    });
+    router.push(`/invoices?${params.toString()}`);
   }
 
   const searchQuery = search.trim().toLowerCase();
@@ -549,6 +562,19 @@ export default function PaymentsPage() {
                 </p>
               </div>
               <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 rounded-full px-3"
+                  onClick={() => goToInvoicePrefill(p)}
+                  disabled={busyId === p.id}
+                  title="Generate invoice"
+                  aria-label="Generate invoice"
+                >
+                  <Receipt className="h-3.5 w-3.5" />
+                  Generate Invoice
+                </Button>
                 <Button
                   variant="secondary"
                   size="sm"

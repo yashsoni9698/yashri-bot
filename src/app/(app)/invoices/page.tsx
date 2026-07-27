@@ -1,17 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Receipt } from "lucide-react";
 import { QuotationEditor } from "@/components/quotations/QuotationEditor";
 import { InvoiceList } from "@/components/invoices/InvoiceList";
 import type { QuotationDraft, QuotationTemplate } from "@/lib/types";
+import { createDefaultQuotation } from "@/lib/quotations/utils";
 
 type DraftWithInvoiceNumber = QuotationDraft & { invoiceNumber?: string };
 
-export default function InvoicesPage() {
+function InvoicesPageContent() {
+  const searchParams = useSearchParams();
   const [templates, setTemplates] = useState<QuotationTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [listKey, setListKey] = useState(0);
+  const [prefillDraft, setPrefillDraft] = useState<Partial<QuotationDraft> | undefined>(
+    undefined
+  );
+  const [prefillToken, setPrefillToken] = useState("");
 
   async function loadTemplates() {
     const res = await fetch("/api/invoices/templates");
@@ -21,6 +28,36 @@ export default function InvoicesPage() {
   }
 
   useEffect(() => { loadTemplates(); }, []);
+
+  useEffect(() => {
+    if (!templates.length) return;
+    const source = searchParams.get("source");
+    const taskName = searchParams.get("name") || "";
+    const projectDetails = searchParams.get("project") || "";
+    const taskAmount = searchParams.get("amount") || "";
+    if (source !== "task" || !taskName.trim() || !projectDetails.trim()) return;
+
+    const base = createDefaultQuotation(templates[0].id);
+    const firstRow = { ...base.rows[0] };
+    firstRow.cells = {
+      ...firstRow.cells,
+      [base.columns[0].id]: "01",
+      [base.columns[1].id]: projectDetails.trim(),
+      [base.columns[2].id]: taskAmount.trim(),
+    };
+    const rows = [firstRow];
+    const nextPrefill: Partial<QuotationDraft> = {
+      templateId: base.templateId,
+      name: taskName.trim(),
+      mobile: "",
+      rows,
+      columns: base.columns,
+    };
+    setPrefillDraft(nextPrefill);
+    setPrefillToken(
+      `${taskName.trim()}|${projectDetails.trim()}|${taskAmount.trim()}`
+    );
+  }, [searchParams, templates]);
 
   async function handleSave(
     draft: DraftWithInvoiceNumber,
@@ -75,6 +112,8 @@ export default function InvoicesPage() {
             templatesApiBase="/api/invoices/templates"
             templateStorageKey="invoice:selectedTemplateId"
             showInvoiceNumber
+            prefillDraft={prefillDraft}
+            prefillToken={prefillToken}
             onSave={handleSave}
           />
         )}
@@ -87,5 +126,21 @@ export default function InvoicesPage() {
         <InvoiceList key={listKey} />
       </section>
     </div>
+  );
+}
+
+export default function InvoicesPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-6xl p-4 md:p-8">
+          <p className="text-sm text-[var(--muted-foreground)]">
+            Loading invoice…
+          </p>
+        </div>
+      }
+    >
+      <InvoicesPageContent />
+    </Suspense>
   );
 }

@@ -9,7 +9,7 @@ import {
   startOfDay,
   startOfWeek,
 } from "date-fns";
-import { Pencil, RotateCcw, Search, Trash2, Wallet } from "lucide-react";
+import { Pencil, Receipt, RotateCcw, Search, Trash2, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -319,6 +319,20 @@ export default function JobDonePage() {
     router.push("/payments");
   }
 
+  function goToInvoicePrefill(task: Task) {
+    const detailsParts = [task.projectName];
+    const req = (task.requirements || []).map((s) => s.trim()).filter(Boolean);
+    if (req.length) detailsParts.push(req.join(", "));
+    if (task.notes?.trim()) detailsParts.push(task.notes.trim());
+    const params = new URLSearchParams({
+      source: "task",
+      name: task.clientName || "",
+      project: detailsParts.join(" - "),
+      amount: task.amount != null ? String(task.amount) : "",
+    });
+    router.push(`/invoices?${params.toString()}`);
+  }
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -493,6 +507,19 @@ export default function JobDonePage() {
                   </p>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-full px-3"
+                    onClick={() => goToInvoicePrefill(t)}
+                    disabled={busyId === t.id}
+                    title="Generate invoice"
+                    aria-label="Generate invoice"
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                    Generate Invoice
+                  </Button>
                   <Button
                     variant="outline"
                     size="icon"

@@ -1,6 +1,11 @@
 /**
- * Auto-create one open task per festival client the day before the festival.
- * e.g. Rath Yatra on 16th → on the 15th add "Sumeru Academy" / "Rath Yatra", …
+ * Auto-create one open task per festival client TWO days before the festival.
+ * e.g. Independence Day on 15th Aug → tasks created on 13th Aug (shows in Tomorrow's Tasks)
+ *                                   → deadline = 14th Aug (shows in Today's Tasks on 14th)
+ *
+ * Timeline:
+ *   D-2 (13 Aug): tasks created → deadline=14 Aug → daysUntil=1 → "Tomorrow's Tasks" ✅
+ *   D-1 (14 Aug): tasks already exist → deadline=14 Aug → daysUntil=0 → "Today's Tasks" ✅
  *
  * Once completed (payment_pending / done), the task stays out of Tasks — it is not recreated.
  */
@@ -13,8 +18,8 @@ import {
 import { getUpcomingFestivals } from "@/lib/festivals/calendar";
 import type { Task } from "@/lib/types";
 
-/** Create festival client tasks only on the day before the festival. */
-const FESTIVAL_TASK_LEAD_DAYS = 1;
+/** Create festival client tasks 2 days before the festival. */
+const FESTIVAL_TASK_LEAD_DAYS = 2;
 
 /** Statuses that mean this client+festival work already exists (do not recreate). */
 const FESTIVAL_TASK_EXISTS_STATUSES = new Set([
@@ -43,16 +48,30 @@ function alreadyHasFestivalTask(
   });
 }
 
+/** Returns YYYY-MM-DD for one day before the given YYYY-MM-DD string. */
+function dayBefore(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - 1);
+  const yy = dt.getUTCFullYear();
+  const mm = String(dt.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(dt.getUTCDate()).padStart(2, "0");
+  return `${yy}-${mm}-${dd}`;
+}
+
 /**
  * Ensure every festival client has a separate todo for each festival that is
- * tomorrow. Idempotent — safe to call on every greeting / tasks load.
+ * in 2 days. Idempotent — safe to call on every greeting / tasks load.
+ * Deadline is set to the day BEFORE the festival so:
+ *   D-2: task created → daysUntil(deadline)=1 → "Tomorrow's Tasks"
+ *   D-1: task exists  → daysUntil(deadline)=0 → "Today's Tasks"
  * Skips clients that already have a todo, payment_pending, or done task for that festival.
  */
 export function ensureFestivalClientTasks(): Task[] {
   const settings = getSettings();
   if (!settings.notifications.festivalReminders) return [];
 
-  // Only the day before (e.g. Rath Yatra on 16th → tasks appear on the 15th)
+  // 2 days before festival — so task first appears in "Tomorrow's Tasks"
   const festivals = getUpcomingFestivals(FESTIVAL_TASK_LEAD_DAYS, 10).filter(
     (f) => f.daysRemaining === FESTIVAL_TASK_LEAD_DAYS
   );
@@ -66,6 +85,9 @@ export function ensureFestivalClientTasks(): Task[] {
     const existing = getTasks().filter((t) =>
       FESTIVAL_TASK_EXISTS_STATUSES.has(t.status)
     );
+
+    // Deadline = day before festival so it moves: Tomorrow → Today naturally
+    const deadline = dayBefore(festival.date);
 
     for (const client of clients) {
       if (
@@ -86,7 +108,7 @@ export function ensureFestivalClientTasks(): Task[] {
         projectName: festival.name,
         requirements: [],
         priority: "low",
-        deadline: festival.date,
+        deadline,
         amount: 0,
         notes: mediaNote,
         tags: ["festival", festival.id],
