@@ -2,13 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  addDays,
-  isSameDay,
-  parseISO,
-  startOfDay,
-  startOfWeek,
-} from "date-fns";
+import { addDays, parseISO, startOfDay } from "date-fns";
 import { Pencil, Receipt, RotateCcw, Search, Trash2, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -48,19 +42,11 @@ interface Task {
   requirements: string[];
 }
 
-type DoneFilter =
-  | "today"
-  | "yesterday"
-  | "this_week"
-  | "last_week"
-  | "previously";
+type SortMode = "newest" | "oldest";
 
-const FILTERS: { key: DoneFilter; label: string }[] = [
-  { key: "today", label: "Added Today" },
-  { key: "yesterday", label: "Added Yesterday" },
-  { key: "this_week", label: "Added This Week" },
-  { key: "last_week", label: "Added Last Week" },
-  { key: "previously", label: "Added Previously" },
+const SORT_OPTIONS: { key: SortMode; label: string }[] = [
+  { key: "newest", label: "Newest" },
+  { key: "oldest", label: "Oldest" },
 ];
 
 function addedDate(t: Task): Date {
@@ -69,24 +55,10 @@ function addedDate(t: Task): Date {
   return startOfDay(parseISO(raw.slice(0, 10)));
 }
 
-function bucketForAdded(t: Task): DoneFilter {
-  const d = addedDate(t);
-  const today = startOfDay(new Date());
-  const yesterday = addDays(today, -1);
-  const weekStart = startOfWeek(today, { weekStartsOn: 1 });
-  const lastWeekStart = addDays(weekStart, -7);
-
-  if (isSameDay(d, today)) return "today";
-  if (isSameDay(d, yesterday)) return "yesterday";
-  if (d >= weekStart && d < today) return "this_week";
-  if (d >= lastWeekStart && d < weekStart) return "last_week";
-  return "previously";
-}
-
 export default function JobDonePage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [filter, setFilter] = useState<DoneFilter>("today");
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState({
@@ -117,25 +89,14 @@ export default function JobDonePage() {
     return tasks.filter((t) => t.clientName.toLowerCase().includes(searchQuery));
   }, [tasks, searchQuery]);
 
-  const filtered = useMemo(
-    () =>
-      matchingTasks
-        .filter((t) => bucketForAdded(t) === filter)
-        .sort((a, b) => addedDate(b).getTime() - addedDate(a).getTime()),
-    [matchingTasks, filter]
-  );
-
-  const filterCounts = useMemo(() => {
-    const counts: Record<DoneFilter, number> = {
-      today: 0,
-      yesterday: 0,
-      this_week: 0,
-      last_week: 0,
-      previously: 0,
-    };
-    for (const t of matchingTasks) counts[bucketForAdded(t)] += 1;
-    return counts;
-  }, [matchingTasks]);
+  const filtered = useMemo(() => {
+    const list = [...matchingTasks];
+    list.sort((a, b) => {
+      const diff = addedDate(a).getTime() - addedDate(b).getTime();
+      return sortMode === "oldest" ? diff : -diff;
+    });
+    return list;
+  }, [matchingTasks, sortMode]);
 
   const tableRows = useMemo((): LedgerTableRow[] => {
     return filtered.map((t) => ({
@@ -371,23 +332,28 @@ export default function JobDonePage() {
         />
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {FILTERS.map(({ key, label }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setFilter(key)}
-            className={cn(
-              "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-              filter === key
-                ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
-                : "bg-[var(--muted)] text-[var(--foreground)] hover:bg-[var(--muted-hover)]"
-            )}
-          >
-            {label}
-            <span className="ml-1.5 opacity-70">{filterCounts[key]}</span>
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-[var(--muted-foreground)]">
+          {filtered.length} job{filtered.length !== 1 ? "s" : ""}
+          {filtered.length !== tasks.length ? ` of ${tasks.length}` : ""}
+        </p>
+        <div className="flex rounded-lg border border-[var(--border)] p-0.5">
+          {SORT_OPTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSortMode(key)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                sortMode === key
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {editingId && (
@@ -574,9 +540,7 @@ export default function JobDonePage() {
           <p className="text-[var(--muted-foreground)]">
             {!tasks.length
               ? "No completed jobs yet."
-              : searchQuery && !matchingTasks.length
-                ? `No clients match “${search.trim()}”.`
-                : `No jobs in “${FILTERS.find((f) => f.key === filter)?.label}”.`}
+              : `No clients match “${search.trim()}”.`}
           </p>
         )}
       </div>

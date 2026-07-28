@@ -268,9 +268,13 @@ export interface QuotationRow {
 export interface QuotationDraft {
   templateId: string;
   name: string;
+  address: string;
   mobile: string;
   date: string;
+  /** User-entered discount value (rupees or percent, see discountType) */
   discount: number;
+  /** How to interpret discount — default "amount" */
+  discountType?: "amount" | "percent";
   columns: QuotationColumn[];
   rows: QuotationRow[];
   /** Present on generated invoices */
@@ -283,6 +287,7 @@ export interface InvoiceRecord {
   invoiceNumber: string;
   templateId: string;
   name: string;
+  address: string;
   mobile: string;
   date: string;
   discount: number;

@@ -15,6 +15,7 @@ export interface SaveInvoicePayload {
   invoiceNumber: string;
   templateId: string;
   name: string;
+  address: string;
   mobile: string;
   date: string;
   discount: number;

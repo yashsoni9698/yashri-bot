@@ -26,11 +26,13 @@ export function createDefaultQuotation(templateId: string): QuotationDraft {
   return {
     templateId,
     name: "",
+    address: "",
     mobile: "",
     date: formatDate(todayISOLocal()),
     discount: 0,
+    discountType: "amount",
     columns: DEFAULT_COLUMNS.map((c) => ({ ...c })),
-    rows: [createRow(DEFAULT_COLUMNS), createRow(DEFAULT_COLUMNS)],
+    rows: [createRow(DEFAULT_COLUMNS)],
   };
 }
 
@@ -102,8 +104,30 @@ export function calculateTotal(rows: QuotationRow[], columns?: QuotationColumn[]
   return rows.reduce((sum, row) => sum + rowLineTotal(row, columns), 0);
 }
 
-export function calculateGrandTotal(subTotal: number, discount = 0): number {
-  return Math.max(0, subTotal - Math.max(0, discount));
+/** Resolve user discount input to a rupee amount (capped at subTotal). */
+export function resolveDiscountAmount(
+  subTotal: number,
+  discount = 0,
+  discountType: "amount" | "percent" = "amount"
+): number {
+  const raw = Math.max(0, discount || 0);
+  if (!raw || subTotal <= 0) return 0;
+  if (discountType === "percent") {
+    const pct = Math.min(raw, 100);
+    return Math.min(subTotal, (subTotal * pct) / 100);
+  }
+  return Math.min(subTotal, raw);
+}
+
+export function calculateGrandTotal(
+  subTotal: number,
+  discount = 0,
+  discountType: "amount" | "percent" = "amount"
+): number {
+  return Math.max(
+    0,
+    subTotal - resolveDiscountAmount(subTotal, discount, discountType)
+  );
 }
 
 export function renumberRows(rows: QuotationRow[]): QuotationRow[] {

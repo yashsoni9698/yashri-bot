@@ -4,6 +4,7 @@
   --background: #f4f2ef;
   --foreground: #1c1917;
   --surface: rgba(255, 252, 247, 0.92);
+  --surface-solid: #fffcf7;
   --sidebar: #faf8f5;
   --panel: color-mix(in oklab, var(--accent-soft) 18%, var(--sidebar));
   --muted: #ebe6de;
@@ -19,12 +20,14 @@
   --radius-soft: 1.25rem;
   --shadow: 0 8px 28px rgba(28, 25, 23, 0.06);
   --shadow-hover: 0 14px 36px rgba(28, 25, 23, 0.1);
+  color-scheme: light;
 }
 
 .dark {
   --background: #12110f;
   --foreground: #f5f2eb;
   --surface: rgba(28, 26, 23, 0.92);
+  --surface-solid: #1c1a17;
   --sidebar: #161411;
   --panel: color-mix(in oklab, var(--accent-soft) 35%, var(--sidebar));
   --muted: #2a2621;
@@ -38,6 +41,7 @@
   --accent-gradient: linear-gradient(135deg, #0f766e 0%, #14b8a6 45%, #2dd4bf 100%);
   --shadow: 0 10px 32px rgba(0, 0, 0, 0.35);
   --shadow-hover: 0 16px 40px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
 }
 
 @theme inline {

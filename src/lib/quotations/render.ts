@@ -4,6 +4,7 @@ import {
   calculateTotal,
   formatRupee,
   renumberRows,
+  resolveDiscountAmount,
   rowLineTotal,
 } from "@/lib/quotations/utils";
 
@@ -181,7 +182,8 @@ function drawHRule(
 
 export async function renderQuotationCanvas(
   quotation: QuotationDraft,
-  bgDataUrl: string
+  bgDataUrl: string,
+  options?: { documentLabel?: string }
 ): Promise<HTMLCanvasElement> {
   const bg = await loadImage(bgDataUrl);
   const w = bg.naturalWidth || QUOTATION_W;
@@ -205,41 +207,103 @@ export async function renderQuotationCanvas(
   ctx.fillStyle = INK;
   ctx.textBaseline = "top";
 
-  const labelFont = `bold 9px ${FONT}`;
-  const valueFont = `11px ${FONT}`;
+  const leftX = PAD_X;
+  const rightX = PAD_X + tableWidth;
+  const leftMaxW = tableWidth * 0.55;
+  const rightMaxW = tableWidth * 0.4;
+  const isInvoice =
+    (options?.documentLabel || "").toLowerCase() === "invoice" ||
+    Boolean(quotation.invoiceNumber?.trim());
 
-  const fields: { label: string; value: string }[] = [];
-  if (quotation.invoiceNumber?.trim()) {
-    fields.push({
-      label: "INVOICE NUMBER",
-      value: quotation.invoiceNumber.trim(),
-    });
+  {
+    ctx.font = `bold 18px ${FONT}`;
+    ctx.fillStyle = INK;
+    const heading = isInvoice ? "INVOICE" : "QUOTATION";
+    const headingW = ctx.measureText(heading).width;
+    ctx.fillText(heading, PAD_X + (tableWidth - headingW) / 2, y);
+    y += 36;
   }
-  fields.push(
-    { label: "NAME", value: quotation.name },
-    { label: "MOBILE NUMBER", value: quotation.mobile },
-    { label: "DATE", value: quotation.date }
-  );
 
-  const fieldCols = fields.length;
-  const fieldW = tableWidth / fieldCols - 8;
+  // Left: Bill To / Quotation To (left-aligned)
+  const recipientLabel = isInvoice ? "Bill To:" : "Quotation To:";
+  let leftY = y;
+  ctx.font = `10px ${FONT}`;
+  ctx.fillStyle = INK;
+  ctx.fillText(recipientLabel, leftX, leftY);
+  leftY += 18;
 
-  fields.forEach((f, i) => {
-    const x = PAD_X + i * (fieldW + 12);
-    ctx.font = labelFont;
-    ctx.fillText(f.label, x, y);
-    ctx.font = valueFont;
-    wrapText(ctx, f.value || " ", fieldW).forEach((line, li) => {
-      ctx.fillText(line, x, y + 14 + li * LINE_H);
-    });
+  ctx.font = `bold 14px ${FONT}`;
+  const nameLines = wrapText(ctx, (quotation.name || "").trim() || " ", leftMaxW);
+  nameLines.forEach((line, li) => {
+    ctx.fillText(line, leftX, leftY + li * 17);
   });
+  leftY += Math.max(17, nameLines.length * 17) + 6;
 
-  y += 52;
+  const addressText = (quotation.address || "").trim();
+  if (addressText) {
+    ctx.font = `11px ${FONT}`;
+    const addressLines = wrapText(ctx, addressText, leftMaxW);
+    addressLines.forEach((line, li) => {
+      ctx.fillText(line, leftX, leftY + li * LINE_H);
+    });
+    leftY += addressLines.length * LINE_H + 6;
+  }
+
+  ctx.font = `11px ${FONT}`;
+  const mobileText = (quotation.mobile || "").trim();
+  ctx.fillText(mobileText ? `Mobile: ${mobileText}` : "Mobile:", leftX, leftY);
+  leftY += LINE_H + 2;
+
+  // Right: Invoice# + number, blank space, Date: + date (right-aligned)
+  let rightY = y;
+  const drawRightLabel = (label: string, atY: number) => {
+    ctx.font = `10px ${FONT}`;
+    ctx.fillStyle = INK;
+    const labelW = ctx.measureText(label).width;
+    ctx.fillText(label, rightX - labelW, atY);
+  };
+  const drawRightValue = (value: string, atY: number, bold = false, size = 14) => {
+    ctx.font = bold ? `bold ${size}px ${FONT}` : `${size}px ${FONT}`;
+    ctx.fillStyle = INK;
+    const lines = wrapText(ctx, value || " ", rightMaxW);
+    lines.forEach((line, li) => {
+      const tw = ctx.measureText(line).width;
+      ctx.fillText(line, rightX - tw, atY + li * 17);
+    });
+    return Math.max(17, lines.length * 17);
+  };
+
+  if (isInvoice) {
+    drawRightLabel("Invoice#", rightY);
+    rightY += 16;
+    rightY += drawRightValue(
+      (quotation.invoiceNumber || "").trim() || " ",
+      rightY,
+      true,
+      16
+    );
+    rightY += 22; // blank space before Date
+  }
+
+  drawRightLabel("Date:", rightY);
+  rightY += 16;
+  rightY += drawRightValue((quotation.date || "").trim() || " ", rightY, false, 12);
+
+  y = Math.max(leftY, rightY) + 20;
 
   const rows = renumberRows(quotation.rows);
   const subTotal = calculateTotal(rows, quotation.columns);
-  const discount = Math.max(0, quotation.discount || 0);
-  const grandTotal = calculateGrandTotal(subTotal, discount);
+  const discountType = quotation.discountType || "amount";
+  const discount = resolveDiscountAmount(
+    subTotal,
+    quotation.discount || 0,
+    discountType
+  );
+  const grandTotal = calculateGrandTotal(
+    subTotal,
+    quotation.discount || 0,
+    discountType
+  );
 
   drawHRule(ctx, y, PAD_X, tableWidth);
   y += 10;
@@ -287,12 +351,20 @@ export async function renderQuotationCanvas(
   y += 10;
 
   const LABEL_VALUE_GAP = 12;
-  const summaryLines: Array<{ label: string; value: string; bold: boolean }> = [
-    { label: "Sub Total", value: formatRupee(subTotal), bold: false },
-  ];
+  const summaryLines: Array<{ label: string; value: string; bold: boolean }> =
+    [];
   if (discount > 0) {
     summaryLines.push({
-      label: "Discount",
+      label: "Sub Total",
+      value: formatRupee(subTotal),
+      bold: false,
+    });
+    const discountLabel =
+      discountType === "percent" && (quotation.discount || 0) > 0
+        ? `Discount (${quotation.discount}%)`
+        : "Discount";
+    summaryLines.push({
+      label: discountLabel,
       value: formatRupee(discount),
       bold: false,
     });

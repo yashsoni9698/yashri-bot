@@ -1,6 +1,50 @@
 import ExcelJS from "exceljs";
+import { parseISO, startOfDay } from "date-fns";
 import { parseAmount, renumberRows, rowLineTotal } from "@/lib/quotations/utils";
 import type { InvoiceRecord, QuotationColumn, QuotationRow } from "@/lib/types";
+import { toStorageDate } from "@/lib/utils";
+
+export type InvoiceExportSort = "newest" | "oldest" | "az" | "za";
+
+function invoiceDate(inv: InvoiceRecord): Date {
+  const fromDisplay = toStorageDate(inv.date, false);
+  if (fromDisplay && /^\d{4}-\d{2}-\d{2}/.test(fromDisplay)) {
+    return startOfDay(parseISO(fromDisplay.slice(0, 10)));
+  }
+  const fallback = inv.createdAt || inv.updatedAt;
+  if (fallback) return startOfDay(parseISO(fallback.slice(0, 10)));
+  return startOfDay(new Date());
+}
+
+/** Sort invoices the same way as Saved Invoices UI. */
+export function sortInvoicesForExport(
+  invoices: InvoiceRecord[],
+  sortMode: InvoiceExportSort = "newest"
+): InvoiceRecord[] {
+  const list = [...invoices];
+  list.sort((a, b) => {
+    if (sortMode === "az") {
+      return (a.name || "").localeCompare(b.name || "", undefined, {
+        sensitivity: "base",
+      });
+    }
+    if (sortMode === "za") {
+      return (b.name || "").localeCompare(a.name || "", undefined, {
+        sensitivity: "base",
+      });
+    }
+    if (sortMode === "oldest") {
+      const dateDiff = invoiceDate(a).getTime() - invoiceDate(b).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return (a.createdAt || "").localeCompare(b.createdAt || "");
+    }
+    // newest
+    const dateDiff = invoiceDate(b).getTime() - invoiceDate(a).getTime();
+    if (dateDiff !== 0) return dateDiff;
+    return (b.createdAt || "").localeCompare(a.createdAt || "");
+  });
+  return list;
+}
 
 const HEADER_FILL: ExcelJS.Fill = {
   type: "pattern",
@@ -31,7 +75,7 @@ const WRAP_ALIGN: Partial<ExcelJS.Alignment> = {
   vertical: "top",
 };
 
-const INVOICE_INFO_COLS = 4;
+const INVOICE_INFO_COLS = 5;
 
 function cellValue(
   row: QuotationRow,
@@ -132,6 +176,7 @@ function buildSummarySheet(workbook: ExcelJS.Workbook, invoices: InvoiceRecord[]
   const headers = [
     "Invoice No",
     "Client Name",
+    "Address",
     "Mobile",
     "Date",
     "Sub Total (₹)",
@@ -147,6 +192,7 @@ function buildSummarySheet(workbook: ExcelJS.Workbook, invoices: InvoiceRecord[]
     const row = sheet.addRow([
       inv.invoiceNumber,
       inv.name,
+      inv.address || "",
       inv.mobile,
       inv.date,
       inv.subTotal,
@@ -156,9 +202,9 @@ function buildSummarySheet(workbook: ExcelJS.Workbook, invoices: InvoiceRecord[]
     ]);
 
     for (let c = 1; c <= headers.length; c++) {
-      const align = c >= 5 && c <= 7 ? "right" : "left";
+      const align = c >= 6 && c <= 8 ? "right" : "left";
       styleDataCell(row.getCell(c), align);
-      if (c >= 5 && c <= 7) {
+      if (c >= 6 && c <= 8) {
         row.getCell(c).numFmt = "#,##0.00";
       }
     }
@@ -174,6 +220,7 @@ function buildLineItemsSheet(workbook: ExcelJS.Workbook, invoices: InvoiceRecord
   const headers = [
     "Invoice No",
     "Client Name",
+    "Address",
     "Mobile",
     "Date",
     ...lineItemCols.map((c) => c.label),
@@ -205,6 +252,7 @@ function buildLineItemsSheet(workbook: ExcelJS.Workbook, invoices: InvoiceRecord
       const values: (string | number)[] = [
         inv.invoiceNumber,
         inv.name,
+        inv.address || "",
         inv.mobile,
         inv.date,
       ];
@@ -243,6 +291,7 @@ function buildLineItemsSheet(workbook: ExcelJS.Workbook, invoices: InvoiceRecord
         2,
         3,
         4,
+        5,
         totalColStart,
         totalColStart + 1,
         totalColStart + 2,
@@ -260,14 +309,27 @@ function buildLineItemsSheet(workbook: ExcelJS.Workbook, invoices: InvoiceRecord
   sheet.views = [{ state: "frozen", ySplit: 1 }];
 }
 
-export async function exportInvoicesToExcel(invoices: InvoiceRecord[]): Promise<void> {
+export async function exportInvoicesToExcel(
+  invoices: InvoiceRecord[],
+  sortMode: InvoiceExportSort = "newest"
+): Promise<void> {
+  const ordered = sortInvoicesForExport(invoices, sortMode);
+
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "Yashri Bot";
   workbook.created = new Date();
 
-  buildSummarySheet(workbook, invoices);
-  buildLineItemsSheet(workbook, invoices);
+  buildSummarySheet(workbook, ordered);
+  buildLineItemsSheet(workbook, ordered);
 
   const buffer = await workbook.xlsx.writeBuffer();
-  triggerDownload(buffer, "invoices.xlsx");
+  const suffix =
+    sortMode === "az"
+      ? "name-az"
+      : sortMode === "za"
+        ? "name-za"
+        : sortMode === "oldest"
+          ? "oldest"
+          : "newest";
+  triggerDownload(buffer, `invoices-${suffix}.xlsx`);
 }

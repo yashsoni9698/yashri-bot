@@ -8,9 +8,10 @@ export const EXPORT_IMAGE_QUALITY = 1;
 export async function exportQuotationJpg(
   quotation: QuotationDraft,
   bgDataUrl: string,
-  filename = "quotation.jpg"
+  filename = "quotation.jpg",
+  options?: { documentLabel?: string }
 ): Promise<void> {
-  const canvas = await renderQuotationCanvas(quotation, bgDataUrl);
+  const canvas = await renderQuotationCanvas(quotation, bgDataUrl, options);
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob((b) => resolve(b), "image/jpeg", EXPORT_IMAGE_QUALITY)
   );
@@ -21,9 +22,10 @@ export async function exportQuotationJpg(
 export async function exportQuotationPdf(
   quotation: QuotationDraft,
   bgDataUrl: string,
-  filename = "quotation.pdf"
+  filename = "quotation.pdf",
+  options?: { documentLabel?: string }
 ): Promise<void> {
-  const canvas = await renderQuotationCanvas(quotation, bgDataUrl);
+  const canvas = await renderQuotationCanvas(quotation, bgDataUrl, options);
   const imgData = canvas.toDataURL("image/png");
 
   const pdf = new jsPDF({

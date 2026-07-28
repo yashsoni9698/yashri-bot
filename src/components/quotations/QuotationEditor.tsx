@@ -2,7 +2,6 @@
 
 import {
   type ChangeEvent,
-  type KeyboardEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -22,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +47,7 @@ import {
   createRow,
   formatRupee,
   renumberRows,
+  resolveDiscountAmount,
   rowLineTotal,
   sanitizeAmountInput,
   sanitizeQtyInput,
@@ -61,26 +62,6 @@ const cellInputClass =
 
 const cellTextareaClass =
   "w-full min-w-0 resize-none rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm leading-snug outline-none transition-colors hover:border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--muted)]";
-
-function insertNewlineAtCursor(
-  e: KeyboardEvent<HTMLTextAreaElement>,
-  value: string,
-  onChange: (next: string) => void
-) {
-  if (e.key !== "Enter" || (!e.ctrlKey && !e.altKey)) return false;
-  e.preventDefault();
-  const el = e.currentTarget;
-  const start = el.selectionStart ?? value.length;
-  const end = el.selectionEnd ?? value.length;
-  const next = `${value.slice(0, start)}\n${value.slice(end)}`;
-  onChange(next);
-  requestAnimationFrame(() => {
-    el.selectionStart = el.selectionEnd = start + 1;
-    el.style.height = "auto";
-    el.style.height = `${el.scrollHeight}px`;
-  });
-  return true;
-}
 
 type QuotationEditorProps = {
   templates: QuotationTemplate[];
@@ -167,6 +148,7 @@ export function QuotationEditor({
         typeof prefillDraft.discount === "number"
           ? prefillDraft.discount
           : q.discount,
+      discountType: prefillDraft.discountType || q.discountType || "amount",
     }));
     if (prefillDraft.templateId) setTemplateId(prefillDraft.templateId);
     if (showInvoiceNumber) setInvoiceNumber(prefillDraft.invoiceNumber || "");
@@ -177,13 +159,18 @@ export function QuotationEditor({
     [quotation.rows]
   );
   const total = useMemo(() => calculateTotal(rows, quotation.columns), [rows, quotation.columns]);
+  const discountType = quotation.discountType || "amount";
+  const discountAmount = useMemo(
+    () => resolveDiscountAmount(total, quotation.discount, discountType),
+    [total, quotation.discount, discountType]
+  );
   const grandTotal = useMemo(
-    () => calculateGrandTotal(total, quotation.discount),
-    [total, quotation.discount]
+    () => calculateGrandTotal(total, quotation.discount, discountType),
+    [total, quotation.discount, discountType]
   );
 
   function updateHeader(
-    field: "name" | "mobile" | "date" | "discount",
+    field: "name" | "address" | "mobile" | "date" | "discount",
     value: string
   ) {
     if (field === "discount") {
@@ -341,17 +328,7 @@ export function QuotationEditor({
             e.target.style.height = "auto";
             e.target.style.height = `${e.target.scrollHeight}px`;
           }}
-          onKeyDown={(e) => {
-            if (e.key !== "Enter") return;
-            if (e.ctrlKey || e.altKey) {
-              insertNewlineAtCursor(e, value, (next) =>
-                updateCell(row.id, col.id, next)
-              );
-            } else {
-              e.preventDefault();
-            }
-          }}
-          placeholder="Ctrl+Enter for new line"
+          placeholder="Description"
           className={cn(cellTextareaClass, "text-center")}
           style={{ minHeight: "2rem" }}
         />
@@ -372,10 +349,17 @@ export function QuotationEditor({
   }
 
   function buildDraft(): QuotationDraft {
+    const base: QuotationDraft = {
+      ...quotation,
+      name: quotation.name || "",
+      address: quotation.address || "",
+      mobile: quotation.mobile || "",
+      date: quotation.date || "",
+    };
     if (showInvoiceNumber && invoiceNumber.trim()) {
-      return { ...quotation, invoiceNumber: invoiceNumber.trim() };
+      return { ...base, invoiceNumber: invoiceNumber.trim() };
     }
-    return quotation;
+    return base;
   }
 
   async function handleGenerate() {
@@ -391,7 +375,9 @@ export function QuotationEditor({
     try {
       const draft = buildDraft();
       const { renderQuotationCanvas } = await import("@/lib/quotations/render");
-      const canvas = await renderQuotationCanvas(draft, bgUrl);
+      const canvas = await renderQuotationCanvas(draft, bgUrl, {
+        documentLabel,
+      });
       const url = canvas.toDataURL("image/jpeg", EXPORT_IMAGE_QUALITY);
       setPreviewUrl(url);
       setPreviewOpen(true);
@@ -417,11 +403,12 @@ export function QuotationEditor({
         (showInvoiceNumber && invoiceNumber.trim()) ||
         quotation.name.trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-") ||
         documentLabel.toLowerCase();
+      const exportOpts = { documentLabel };
       if (type === "jpg") {
-        await exportQuotationJpg(draft, bgUrl, `${safeName}.jpg`);
+        await exportQuotationJpg(draft, bgUrl, `${safeName}.jpg`, exportOpts);
         toast("JPG downloaded");
       } else {
-        await exportQuotationPdf(draft, bgUrl, `${safeName}.pdf`);
+        await exportQuotationPdf(draft, bgUrl, `${safeName}.pdf`, exportOpts);
         toast("PDF downloaded");
       }
     } catch {
@@ -521,17 +508,16 @@ export function QuotationEditor({
         </h2>
         <div className="flex flex-wrap items-end gap-3">
           <div className="min-w-[180px]">
-            <select
+            <Select
               value={templateId}
               onChange={(e) => onTemplateChange(e.target.value)}
-              className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
             >
               {templateList.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -565,49 +551,77 @@ export function QuotationEditor({
         <h2 className="mb-4 text-sm font-semibold text-[var(--foreground)]">
           Client details
         </h2>
-        <div className="grid gap-4 sm:grid-cols-3">
-          {showInvoiceNumber && (
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+              {documentLabel.toLowerCase() === "invoice"
+                ? "Bill To"
+                : "Quotation To"}
+            </p>
             <div>
               <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
-                Invoice Number
+                Client Name
               </label>
               <Input
-                value={invoiceNumber}
-                onChange={(e) => setInvoiceNumber(e.target.value)}
-                placeholder="e.g. INV-001"
+                value={quotation.name}
+                onChange={(e) => updateHeader("name", e.target.value)}
+                placeholder="Client name"
               />
             </div>
-          )}
-          <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
-              Name
-            </label>
-            <Input
-              value={quotation.name}
-              onChange={(e) => updateHeader("name", e.target.value)}
-              placeholder="Client name"
-            />
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
+                Address
+              </label>
+              <textarea
+                value={quotation.address || ""}
+                onChange={(e) => {
+                  updateHeader("address", e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = `${e.target.scrollHeight}px`;
+                }}
+                placeholder="Client address"
+                rows={3}
+                className="flex min-h-[4.5rem] w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-[var(--accent)]"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
+                Mobile
+              </label>
+              <Input
+                type="tel"
+                value={quotation.mobile}
+                onChange={(e) => updateHeader("mobile", e.target.value)}
+                placeholder="10-digit mobile"
+              />
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
-              Mobile Number
-            </label>
-            <Input
-              type="tel"
-              value={quotation.mobile}
-              onChange={(e) => updateHeader("mobile", e.target.value)}
-              placeholder="10-digit mobile"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)]">
-              Date
-            </label>
-            <Input
-              value={quotation.date}
-              onChange={(e) => updateHeader("date", e.target.value)}
-              placeholder="DD-MM-YYYY"
-            />
+
+          <div className="space-y-3 sm:text-right">
+            {showInvoiceNumber && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)] sm:text-right">
+                  Invoice#
+                </label>
+                <Input
+                  value={invoiceNumber}
+                  onChange={(e) => setInvoiceNumber(e.target.value)}
+                  placeholder="e.g. INV-001"
+                  className="sm:text-right"
+                />
+              </div>
+            )}
+            <div className={showInvoiceNumber ? "pt-4" : ""}>
+              <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)] sm:text-right">
+                Date
+              </label>
+              <Input
+                value={quotation.date}
+                onChange={(e) => updateHeader("date", e.target.value)}
+                placeholder="DD-MM-YYYY"
+                className="sm:text-right"
+              />
+            </div>
           </div>
         </div>
       </Card>
@@ -733,8 +747,39 @@ export function QuotationEditor({
             <div className="min-w-[220px] space-y-2 text-sm text-[#1e293b]">
               <div className="flex items-center justify-between gap-8">
                 <span>Discount</span>
-                <div className="flex items-center">
-                  <span className="shrink-0 pr-1">₹</span>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex rounded-md border border-[var(--border)] p-0.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setQuotation((q) => ({ ...q, discountType: "amount" }))
+                      }
+                      className={cn(
+                        "rounded px-2 py-0.5 text-xs font-medium transition-colors",
+                        discountType === "amount"
+                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                          : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                      )}
+                      title="Discount in rupees"
+                    >
+                      ₹
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setQuotation((q) => ({ ...q, discountType: "percent" }))
+                      }
+                      className={cn(
+                        "rounded px-2 py-0.5 text-xs font-medium transition-colors",
+                        discountType === "percent"
+                          ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                          : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                      )}
+                      title="Discount as percentage"
+                    >
+                      %
+                    </button>
+                  </div>
                   <input
                     type="text"
                     inputMode="decimal"
@@ -745,14 +790,21 @@ export function QuotationEditor({
                       updateHeader("discount", e.target.value)
                     }
                     placeholder="0"
-                    className={cn(cellInputClass, "w-24 text-right")}
+                    className={cn(cellInputClass, "w-20 text-right")}
                   />
+                  {discountType === "percent" && discountAmount > 0 && (
+                    <span className="shrink-0 text-xs text-[var(--muted-foreground)]">
+                      = {formatRupee(discountAmount)}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="flex justify-between gap-8">
-                <span>Sub Total</span>
-                <span>{formatRupee(total)}</span>
-              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between gap-8">
+                  <span>Sub Total</span>
+                  <span>{formatRupee(total)}</span>
+                </div>
+              )}
               <div className="flex justify-between gap-8 text-base font-bold">
                 <span>Grand Total</span>
                 <span>{formatRupee(grandTotal)}</span>

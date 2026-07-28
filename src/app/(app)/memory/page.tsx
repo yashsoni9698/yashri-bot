@@ -5,6 +5,7 @@ import { Lock, Pencil, Trash2 } from "lucide-react";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { toast } from "@/components/ui/toaster";
 import { formatDate } from "@/lib/utils";
 
@@ -227,8 +228,8 @@ export default function MemoryPage() {
           placeholder="e.g. Prefer warm neutrals for interior clients"
         />
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            className="flex h-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+          <Select
+            className="w-auto"
             value={category}
             onChange={(e) =>
               setCategory(e.target.value as (typeof CATEGORIES)[number])
@@ -239,7 +240,7 @@ export default function MemoryPage() {
                 {c}
               </option>
             ))}
-          </select>
+          </Select>
           <Button onClick={save} disabled={saving || !content.trim()}>
             {saving ? "Saving…" : "Save to memory"}
           </Button>
@@ -282,8 +283,7 @@ export default function MemoryPage() {
                   onChange={(e) => setEditContent(e.target.value)}
                   rows={4}
                 />
-                <select
-                  className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+                <Select
                   value={editCategory}
                   onChange={(e) =>
                     setEditCategory(
@@ -296,7 +296,7 @@ export default function MemoryPage() {
                       {c}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <div className="flex gap-2">
                   <Button
                     onClick={saveEdit}

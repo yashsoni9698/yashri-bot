@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   await ensureSupabaseData();
   const body = await req.json();
   const {
-    invoiceNumber, templateId, name, mobile, date,
+    invoiceNumber, templateId, name, address, mobile, date,
     discount, columns, rows, subTotal, grandTotal,
   } = body;
 
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
     invoiceNumber: String(invoiceNumber),
     templateId: String(templateId || ""),
     name: String(name || ""),
+    address: String(address || ""),
     mobile: String(mobile || ""),
     date: String(date || ""),
     discount: Number(discount) || 0,

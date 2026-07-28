@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { formatDate, toStorageDate } from "@/lib/utils";
 
 interface Festival {
@@ -256,8 +257,7 @@ export default function FestivalsPage() {
                 }
                 required
               />
-              <select
-                className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+              <Select
                 value={form.type}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, type: e.target.value }))
@@ -268,7 +268,7 @@ export default function FestivalsPage() {
                     {t}
                   </option>
                 ))}
-              </select>
+              </Select>
               <div className="flex items-center gap-4 text-sm">
                 <label className="flex items-center gap-2">
                   <input

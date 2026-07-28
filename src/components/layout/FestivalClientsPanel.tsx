@@ -5,6 +5,7 @@ import { Check, Pencil, Plus, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { cn } from "@/lib/utils";
 
@@ -295,8 +296,8 @@ export function FestivalClientsPanel() {
                   aria-label={`Business type for ${c.name}`}
                 />
                 <div className="flex items-center gap-2">
-                  <select
-                    className="flex h-8 min-w-0 flex-1 rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-medium"
+                  <Select
+                    className="h-8 min-w-0 flex-1 rounded-full px-3 text-xs font-medium"
                     value={c.mediaType}
                     onChange={(e) =>
                       setClientType(c.id, e.target.value as "image" | "video")
@@ -305,7 +306,7 @@ export function FestivalClientsPanel() {
                   >
                     <option value="image">Image</option>
                     <option value="video">Video</option>
-                  </select>
+                  </Select>
                   <button
                     type="button"
                     onClick={() => toggleNoPayment(c.id, !c.noPayment)}

@@ -6,7 +6,7 @@ import { Receipt } from "lucide-react";
 import { QuotationEditor } from "@/components/quotations/QuotationEditor";
 import { InvoiceList } from "@/components/invoices/InvoiceList";
 import type { QuotationDraft, QuotationTemplate } from "@/lib/types";
-import { createDefaultQuotation } from "@/lib/quotations/utils";
+import { createDefaultQuotation, resolveDiscountAmount } from "@/lib/quotations/utils";
 
 type DraftWithInvoiceNumber = QuotationDraft & { invoiceNumber?: string };
 
@@ -49,6 +49,7 @@ function InvoicesPageContent() {
     const nextPrefill: Partial<QuotationDraft> = {
       templateId: base.templateId,
       name: taskName.trim(),
+      address: "",
       mobile: "",
       rows,
       columns: base.columns,
@@ -71,9 +72,14 @@ function InvoicesPageContent() {
         invoiceNumber: draft.invoiceNumber || "",
         templateId: draft.templateId,
         name: draft.name,
+        address: draft.address || "",
         mobile: draft.mobile,
         date: draft.date,
-        discount: draft.discount,
+        discount: resolveDiscountAmount(
+          subTotal,
+          draft.discount,
+          draft.discountType || "amount"
+        ),
         columns: draft.columns,
         rows: draft.rows,
         subTotal,

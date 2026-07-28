@@ -13,6 +13,7 @@ import {
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { daysUntil, formatDate, formatINR, priorityBadgeTone } from "@/lib/utils";
 import { toast } from "@/components/ui/toaster";
@@ -406,8 +407,7 @@ export default function TasksPage() {
                   setForm((f) => ({ ...f, amount: e.target.value }))
                 }
               />
-              <select
-                className="flex h-10 w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm"
+              <Select
                 value={form.priority}
                 onChange={(e) =>
                   setForm((f) => ({ ...f, priority: e.target.value }))
@@ -417,7 +417,7 @@ export default function TasksPage() {
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
                 <option value="urgent">Urgent</option>
-              </select>
+              </Select>
               {showRequirements ? (
                 <Input
                   className="sm:col-span-2"

@@ -9,6 +9,7 @@ import {
   FileSpreadsheet,
   FileText,
   RefreshCw,
+  Search,
   Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toaster";
 import {
   EXPORT_IMAGE_QUALITY,
@@ -35,7 +37,8 @@ import {
   renumberRows,
   rowLineTotal,
 } from "@/lib/quotations/utils";
-import { exportInvoicesToExcel } from "@/lib/invoices/export";
+import { exportInvoicesToExcel, sortInvoicesForExport } from "@/lib/invoices/export";
+import type { InvoiceExportSort } from "@/lib/invoices/export";
 import type {
   InvoiceRecord,
   QuotationColumn,
@@ -45,6 +48,31 @@ import type {
 import { cn } from "@/lib/utils";
 
 type ViewMode = "summary" | "details";
+
+type SortBy = "date" | "name";
+type SortMode = InvoiceExportSort;
+
+const SORT_BY_OPTIONS: { key: SortBy; label: string }[] = [
+  { key: "date", label: "Date" },
+  { key: "name", label: "Name" },
+];
+
+const DATE_ORDER_OPTIONS: { key: SortMode; label: string }[] = [
+  { key: "newest", label: "Newest" },
+  { key: "oldest", label: "Oldest" },
+];
+
+const NAME_ORDER_OPTIONS: { key: SortMode; label: string }[] = [
+  { key: "az", label: "A→Z" },
+  { key: "za", label: "Z→A" },
+];
+
+function sortModeLabel(mode: SortMode): string {
+  if (mode === "az") return "Name A→Z";
+  if (mode === "za") return "Name Z→A";
+  if (mode === "oldest") return "Date Oldest";
+  return "Date Newest";
+}
 
 function cellDisplay(
   row: QuotationRow,
@@ -88,6 +116,7 @@ type DetailRow = {
   invoiceId: string;
   invoiceNumber: string;
   name: string;
+  address: string;
   mobile: string;
   date: string;
   discount: number;
@@ -103,6 +132,7 @@ function invoiceToDraft(inv: InvoiceRecord): QuotationDraft {
   return {
     templateId: inv.templateId,
     name: inv.name,
+    address: inv.address || "",
     mobile: inv.mobile,
     date: inv.date,
     discount: inv.discount,
@@ -121,6 +151,7 @@ function buildDetailRows(invoices: InvoiceRecord[]): DetailRow[] {
         invoiceId: inv.id,
         invoiceNumber: inv.invoiceNumber,
         name: inv.name,
+        address: inv.address || "",
         mobile: inv.mobile,
         date: inv.date,
         discount: inv.discount,
@@ -202,12 +233,45 @@ export function InvoiceList() {
   const [previewDraft, setPreviewDraft] = useState<QuotationDraft | null>(null);
   const [previewBgUrl, setPreviewBgUrl] = useState<string | null>(null);
   const [exporting, setExporting] = useState<"jpg" | "pdf" | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortBy>("date");
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
 
-  const detailRows = useMemo(() => buildDetailRows(invoices), [invoices]);
+  const searchQuery = search.trim().toLowerCase();
+
+  function selectSortBy(next: SortBy) {
+    setSortBy(next);
+    setSortMode(next === "date" ? "newest" : "az");
+  }
+
+  const matchingInvoices = useMemo(() => {
+    if (!searchQuery) return invoices;
+    return invoices.filter((inv) => {
+      const haystack = [
+        inv.name,
+        inv.invoiceNumber,
+        inv.mobile,
+        inv.address || "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(searchQuery);
+    });
+  }, [invoices, searchQuery]);
+
+  const filteredInvoices = useMemo(
+    () => sortInvoicesForExport(matchingInvoices, sortMode),
+    [matchingInvoices, sortMode]
+  );
+
+  const detailRows = useMemo(
+    () => buildDetailRows(filteredInvoices),
+    [filteredInvoices]
+  );
   const detailColumns = useMemo(() => {
     const seen = new Set<string>();
     const cols: QuotationColumn[] = [];
-    for (const inv of invoices) {
+    for (const inv of filteredInvoices) {
       for (const col of inv.columns) {
         if (!seen.has(col.id)) {
           seen.add(col.id);
@@ -216,7 +280,7 @@ export function InvoiceList() {
       }
     }
     return cols;
-  }, [invoices]);
+  }, [filteredInvoices]);
 
   async function load() {
     try {
@@ -245,7 +309,9 @@ export function InvoiceList() {
       }
       const draft = invoiceToDraft(inv);
       const { renderQuotationCanvas } = await import("@/lib/quotations/render");
-      const canvas = await renderQuotationCanvas(draft, data.dataUrl);
+      const canvas = await renderQuotationCanvas(draft, data.dataUrl, {
+        documentLabel: "Invoice",
+      });
       const url = canvas.toDataURL("image/jpeg", EXPORT_IMAGE_QUALITY);
       setPreviewDraft(draft);
       setPreviewBgUrl(data.dataUrl);
@@ -268,10 +334,14 @@ export function InvoiceList() {
         previewDraft.name.trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "-") ||
         "invoice";
       if (type === "jpg") {
-        await exportQuotationJpg(previewDraft, previewBgUrl, `${safeName}.jpg`);
+        await exportQuotationJpg(previewDraft, previewBgUrl, `${safeName}.jpg`, {
+          documentLabel: "Invoice",
+        });
         toast("JPG downloaded");
       } else {
-        await exportQuotationPdf(previewDraft, previewBgUrl, `${safeName}.pdf`);
+        await exportQuotationPdf(previewDraft, previewBgUrl, `${safeName}.pdf`, {
+          documentLabel: "Invoice",
+        });
         toast("PDF downloaded");
       }
     } catch {
@@ -317,10 +387,66 @@ export function InvoiceList() {
 
   return (
     <div className="space-y-3">
+      <div className="relative max-w-md">
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+        <Input
+          type="search"
+          placeholder="Search by name…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+          aria-label="Search invoices by name"
+        />
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-[var(--muted-foreground)]">
-          {invoices.length} saved invoice{invoices.length !== 1 ? "s" : ""}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm text-[var(--muted-foreground)]">
+            {filteredInvoices.length} invoice
+            {filteredInvoices.length !== 1 ? "s" : ""}
+            {filteredInvoices.length !== invoices.length
+              ? ` of ${invoices.length}`
+              : ""}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex rounded-lg border border-[var(--border)] p-0.5">
+              {SORT_BY_OPTIONS.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => selectSortBy(key)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                    sortBy === key
+                      ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex rounded-lg border border-[var(--border)] p-0.5">
+              {(sortBy === "date" ? DATE_ORDER_OPTIONS : NAME_ORDER_OPTIONS).map(
+                ({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setSortMode(key)}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                      sortMode === key
+                        ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                    )}
+                  >
+                    {label}
+                  </button>
+                )
+              )}
+            </div>
+          </div>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex rounded-lg border border-[var(--border)] p-0.5">
             <button
@@ -352,7 +478,15 @@ export function InvoiceList() {
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => exportInvoicesToExcel(invoices)}
+            onClick={async () => {
+              try {
+                await exportInvoicesToExcel(filteredInvoices, sortMode);
+                toast(`Excel exported in ${sortModeLabel(sortMode)} order`);
+              } catch {
+                toast("Could not export Excel");
+              }
+            }}
+            disabled={!filteredInvoices.length}
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
             Export to Excel
@@ -360,7 +494,11 @@ export function InvoiceList() {
         </div>
       </div>
 
-      {viewMode === "summary" ? (
+      {!filteredInvoices.length ? (
+        <p className="text-sm text-[var(--muted-foreground)]">
+          No invoices match the current search.
+        </p>
+      ) : viewMode === "summary" ? (
         <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
@@ -388,7 +526,7 @@ export function InvoiceList() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => {
+              {filteredInvoices.map((inv) => {
                 const open = expandedId === inv.id;
                 return (
                   <Fragment key={inv.id}>
@@ -414,6 +552,11 @@ export function InvoiceList() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="font-medium">{inv.name || "—"}</div>
+                        {inv.address && (
+                          <div className="whitespace-pre-line text-xs text-[var(--muted-foreground)]">
+                            {inv.address}
+                          </div>
+                        )}
                         {inv.mobile && (
                           <div className="text-xs text-[var(--muted-foreground)]">
                             {inv.mobile}
@@ -532,7 +675,7 @@ export function InvoiceList() {
             </thead>
             <tbody>
               {detailRows.map((d, i) => {
-                const inv = invoices.find((x) => x.id === d.invoiceId)!;
+                const inv = filteredInvoices.find((x) => x.id === d.invoiceId)!;
                 const colById = new Map(inv.columns.map((c) => [c.id, c]));
                 return (
                   <tr
@@ -652,6 +795,7 @@ export function InvoiceList() {
                 <DialogTitle>Invoice {viewInvoice.invoiceNumber}</DialogTitle>
                 <DialogDescription>
                   {viewInvoice.name}
+                  {viewInvoice.address ? ` · ${viewInvoice.address}` : ""}
                   {viewInvoice.mobile ? ` · ${viewInvoice.mobile}` : ""}
                   {viewInvoice.date ? ` · ${viewInvoice.date}` : ""}
                 </DialogDescription>
@@ -663,15 +807,17 @@ export function InvoiceList() {
 
               <div className="flex justify-end">
                 <div className="min-w-[200px] space-y-1 text-sm">
-                  <div className="flex justify-between gap-6">
-                    <span className="text-[var(--muted-foreground)]">Sub Total</span>
-                    <span>{formatRupee(viewInvoice.subTotal)}</span>
-                  </div>
                   {viewInvoice.discount > 0 && (
-                    <div className="flex justify-between gap-6">
-                      <span className="text-[var(--muted-foreground)]">Discount</span>
-                      <span>{formatRupee(viewInvoice.discount)}</span>
-                    </div>
+                    <>
+                      <div className="flex justify-between gap-6">
+                        <span className="text-[var(--muted-foreground)]">Sub Total</span>
+                        <span>{formatRupee(viewInvoice.subTotal)}</span>
+                      </div>
+                      <div className="flex justify-between gap-6">
+                        <span className="text-[var(--muted-foreground)]">Discount</span>
+                        <span>{formatRupee(viewInvoice.discount)}</span>
+                      </div>
+                    </>
                   )}
                   <div className="flex justify-between gap-6 font-bold">
                     <span>Grand Total</span>
