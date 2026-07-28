@@ -501,16 +501,17 @@ export function QuotationEditor({
   }
 
   return (
-    <div className="space-y-6">
-      <Card>
+    <div className="min-w-0 space-y-6">
+      <Card className="p-4 sm:p-5">
         <h2 className="mb-4 text-sm font-semibold text-[var(--foreground)]">
           Template
         </h2>
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[180px]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="w-full min-w-0 sm:min-w-[180px] sm:max-w-xs">
             <Select
               value={templateId}
               onChange={(e) => onTemplateChange(e.target.value)}
+              className="w-full"
             >
               {templateList.map((t) => (
                 <option key={t.id} value={t.id}>
@@ -519,10 +520,11 @@ export function QuotationEditor({
               ))}
             </Select>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-col gap-2 min-[420px]:flex-row sm:w-auto">
             <Button
               type="button"
               variant="outline"
+              className="w-full min-[420px]:w-auto"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingTemplate || templateList.length >= 3}
             >
@@ -531,6 +533,7 @@ export function QuotationEditor({
             <Button
               type="button"
               variant="outline"
+              className="w-full min-[420px]:w-auto"
               onClick={handleRemoveTemplate}
               disabled={templateList.length <= 1}
             >
@@ -547,12 +550,12 @@ export function QuotationEditor({
         </div>
       </Card>
 
-      <Card>
+      <Card className="p-4 sm:p-5">
         <h2 className="mb-4 text-sm font-semibold text-[var(--foreground)]">
           Client details
         </h2>
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div className="space-y-3">
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-3 min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
               {documentLabel.toLowerCase() === "invoice"
                 ? "Bill To"
@@ -597,49 +600,49 @@ export function QuotationEditor({
             </div>
           </div>
 
-          <div className="space-y-3 sm:text-right">
+          <div className="space-y-3 min-w-0 md:text-right">
             {showInvoiceNumber && (
               <div>
-                <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)] sm:text-right">
+                <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)] md:text-right">
                   Invoice#
                 </label>
                 <Input
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
                   placeholder="e.g. INV-001"
-                  className="sm:text-right"
+                  className="md:text-right"
                 />
               </div>
             )}
-            <div className={showInvoiceNumber ? "pt-4" : ""}>
-              <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)] sm:text-right">
+            <div className={showInvoiceNumber ? "pt-0 md:pt-4" : ""}>
+              <label className="mb-1 block text-xs font-medium text-[var(--muted-foreground)] md:text-right">
                 Date
               </label>
               <Input
                 value={quotation.date}
                 onChange={(e) => updateHeader("date", e.target.value)}
                 placeholder="DD-MM-YYYY"
-                className="sm:text-right"
+                className="md:text-right"
               />
             </div>
           </div>
         </div>
       </Card>
 
-      <Card>
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <Card className="min-w-0 p-4 sm:p-5">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <h2 className="text-sm font-semibold text-[var(--foreground)]">
             {documentLabel} table
           </h2>
           <div className="flex flex-wrap items-center gap-2">
             {/* ₹ prefix column selector */}
-            <div className="relative">
+            <div className="relative w-full min-[360px]:w-auto">
               <details className="group">
-                <summary className="flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted)]">
+                <summary className="flex h-9 w-full cursor-pointer list-none items-center justify-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-medium text-[var(--foreground)] hover:bg-[var(--muted)] min-[360px]:w-auto min-[360px]:justify-start">
                   <IndianRupee className="h-3.5 w-3.5 text-[var(--accent)]" />
                   ₹ Prefix
                 </summary>
-                <div className="absolute left-0 top-full z-20 mt-1 min-w-[180px] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow)]">
+                <div className="absolute left-0 right-0 top-full z-20 mt-1 min-w-[180px] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-[var(--shadow)] min-[360px]:left-auto min-[360px]:right-0">
                   <p className="mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
                     Show ₹ on columns
                   </p>
@@ -662,19 +665,22 @@ export function QuotationEditor({
                 </div>
               </details>
             </div>
-            <Button type="button" variant="outline" size="sm" onClick={addColumn}>
+            <Button type="button" variant="outline" size="sm" className="flex-1 min-[360px]:flex-none" onClick={addColumn}>
               <Columns3 className="h-3.5 w-3.5" />
               Add column
             </Button>
-            <Button type="button" variant="outline" size="sm" onClick={addRow}>
+            <Button type="button" variant="outline" size="sm" className="flex-1 min-[360px]:flex-none" onClick={addRow}>
               <Plus className="h-3.5 w-3.5" />
               Add row
             </Button>
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[40rem] table-fixed border-collapse border border-[var(--border)] text-sm">
+        <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 touch-pan-x sm:mx-0 sm:px-0">
+          <p className="mb-2 text-[10px] text-[var(--muted-foreground)] md:hidden">
+            Swipe horizontally to edit all columns
+          </p>
+          <table className="w-full min-w-[36rem] table-fixed border-collapse border border-[var(--border)] text-sm sm:min-w-[40rem]">
             <thead>
               <tr>
                 {quotation.columns.map((col) => (
@@ -743,11 +749,11 @@ export function QuotationEditor({
             </tbody>
           </table>
 
-          <div className="mt-6 flex justify-end">
-            <div className="min-w-[220px] space-y-2 text-sm text-[#1e293b]">
-              <div className="flex items-center justify-between gap-8">
-                <span>Discount</span>
-                <div className="flex items-center gap-1.5">
+          <div className="mt-6 flex justify-stretch sm:justify-end">
+            <div className="w-full min-w-0 max-w-md space-y-2 text-sm text-[#1e293b] sm:min-w-[220px]">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+                <span className="font-medium">Discount</span>
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
                   <div className="flex rounded-md border border-[var(--border)] p-0.5">
                     <button
                       type="button"
@@ -814,10 +820,11 @@ export function QuotationEditor({
         </div>
       </Card>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <Button
           type="button"
           size="lg"
+          className="w-full sm:w-auto"
           onClick={handleGenerate}
           disabled={generating || !bgUrl}
         >
@@ -827,7 +834,7 @@ export function QuotationEditor({
       </div>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[min(100vw-1rem,56rem)] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5" />
@@ -840,18 +847,18 @@ export function QuotationEditor({
           </DialogHeader>
 
           {previewUrl && (
-            <div className="flex justify-center rounded-lg border border-[var(--border)] bg-[var(--muted)] p-3">
+            <div className="flex justify-center rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2 sm:p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewUrl}
                 alt={`${documentLabel} preview`}
-                className="max-h-[60vh] w-auto shadow-md"
+                className="max-h-[55vh] w-full max-w-full object-contain shadow-md sm:max-h-[60vh] sm:w-auto"
                 style={{ aspectRatio: `${QUOTATION_W} / ${QUOTATION_H}` }}
               />
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2 [&>button]:w-full sm:[&>button]:w-auto">
             <Button
               type="button"
               variant="outline"

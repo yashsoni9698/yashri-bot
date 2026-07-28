@@ -6,7 +6,9 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "sync:festivals": "npx tsx scripts/sync-festivals.ts",
+    "seed": "npx tsx scripts/seed-supabase.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

@@ -387,7 +387,7 @@ export function InvoiceList() {
 
   return (
     <div className="space-y-3">
-      <div className="relative max-w-md">
+      <div className="relative w-full max-w-md">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
         <Input
           type="search"
@@ -399,8 +399,8 @@ export function InvoiceList() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
           <p className="text-sm text-[var(--muted-foreground)]">
             {filteredInvoices.length} invoice
             {filteredInvoices.length !== 1 ? "s" : ""}
@@ -408,7 +408,7 @@ export function InvoiceList() {
               ? ` of ${invoices.length}`
               : ""}
           </p>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-col gap-2 min-[400px]:flex-row min-[400px]:flex-wrap min-[400px]:items-center">
             <div className="flex rounded-lg border border-[var(--border)] p-0.5">
               {SORT_BY_OPTIONS.map(({ key, label }) => (
                 <button
@@ -447,7 +447,7 @@ export function InvoiceList() {
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-col gap-2 min-[400px]:flex-row min-[400px]:flex-wrap min-[400px]:items-center">
           <div className="flex rounded-lg border border-[var(--border)] p-0.5">
             <button
               type="button"
@@ -478,6 +478,7 @@ export function InvoiceList() {
             type="button"
             variant="outline"
             size="sm"
+            className="w-full min-[400px]:w-auto"
             onClick={async () => {
               try {
                 await exportInvoicesToExcel(filteredInvoices, sortMode);
@@ -499,7 +500,108 @@ export function InvoiceList() {
           No invoices match the current search.
         </p>
       ) : viewMode === "summary" ? (
-        <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+        <>
+          <div className="space-y-3 md:hidden">
+            {filteredInvoices.map((inv) => {
+              const open = expandedId === inv.id;
+              return (
+                <div
+                  key={inv.id}
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow)]"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-[var(--accent)]">
+                        {inv.invoiceNumber}
+                      </p>
+                      <p className="mt-0.5 truncate font-medium">
+                        {inv.name || "—"}
+                      </p>
+                      {inv.date && (
+                        <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                          {inv.date}
+                        </p>
+                      )}
+                    </div>
+                    <p className="shrink-0 text-right text-sm font-bold">
+                      {formatRupee(inv.grandTotal)}
+                    </p>
+                  </div>
+                  {(inv.address || inv.mobile) && (
+                    <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                      {inv.address && (
+                        <p className="whitespace-pre-line">{inv.address}</p>
+                      )}
+                      {inv.mobile && <p>{inv.mobile}</p>}
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--muted-foreground)]">
+                    <span>Sub: {formatRupee(inv.subTotal)}</span>
+                    {inv.discount > 0 && (
+                      <span>Disc: {formatRupee(inv.discount)}</span>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-col gap-2 min-[420px]:flex-row min-[420px]:flex-wrap">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full min-[420px]:flex-1"
+                      onClick={() => handleGenerateAgain(inv)}
+                      disabled={generatingId === inv.id}
+                    >
+                      <RefreshCw
+                        className={cn(
+                          "h-3 w-3",
+                          generatingId === inv.id && "animate-spin"
+                        )}
+                      />
+                      {generatingId === inv.id ? "Generating…" : "Generate again"}
+                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => setExpandedId(open ? null : inv.id)}
+                      >
+                        {open ? "Hide items" : "Line items"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="px-3"
+                        onClick={() => setViewInvoice(inv)}
+                        aria-label="View full details"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="danger"
+                        size="sm"
+                        className="px-3"
+                        onClick={() => handleDelete(inv.id)}
+                        disabled={deletingId === inv.id}
+                        aria-label="Delete invoice"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  {open && (
+                    <div className="mt-3 overflow-x-auto overscroll-x-contain border-t border-[var(--border)] pt-3">
+                      <LineItemsTable invoice={inv} compact />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-xl border border-[var(--border)] md:block">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
@@ -632,9 +734,13 @@ export function InvoiceList() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-[var(--border)]">
+        <div className="-mx-1 overflow-x-auto overscroll-x-contain rounded-xl border border-[var(--border)] px-1 touch-pan-x sm:mx-0 sm:px-0">
+          <p className="px-3 py-2 text-[10px] text-[var(--muted-foreground)] md:hidden">
+            Swipe horizontally to see all columns
+          </p>
           <table className="w-full min-w-[960px] text-sm">
             <thead>
               <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
@@ -742,7 +848,7 @@ export function InvoiceList() {
           }
         }}
       >
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[min(100vw-1rem,48rem)] max-w-3xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileSpreadsheet className="h-5 w-5" />
@@ -754,18 +860,18 @@ export function InvoiceList() {
           </DialogHeader>
 
           {previewUrl && (
-            <div className="flex justify-center rounded-lg border border-[var(--border)] bg-[var(--muted)] p-3">
+            <div className="flex justify-center rounded-lg border border-[var(--border)] bg-[var(--muted)] p-2 sm:p-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewUrl}
                 alt="Invoice preview"
-                className="max-h-[60vh] w-auto shadow-md"
+                className="max-h-[55vh] w-full max-w-full object-contain shadow-md sm:max-h-[60vh] sm:w-auto"
                 style={{ aspectRatio: `${QUOTATION_W} / ${QUOTATION_H}` }}
               />
             </div>
           )}
 
-          <DialogFooter className="gap-2 sm:gap-2">
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-2 [&>button]:w-full sm:[&>button]:w-auto">
             <Button
               type="button"
               variant="outline"
@@ -788,7 +894,7 @@ export function InvoiceList() {
       </Dialog>
 
       <Dialog open={Boolean(viewInvoice)} onOpenChange={(o) => !o && setViewInvoice(null)}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[min(100vw-1rem,48rem)] max-w-3xl overflow-y-auto">
           {viewInvoice && (
             <>
               <DialogHeader>
@@ -801,12 +907,12 @@ export function InvoiceList() {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto overscroll-x-contain">
                 <LineItemsTable invoice={viewInvoice} />
               </div>
 
-              <div className="flex justify-end">
-                <div className="min-w-[200px] space-y-1 text-sm">
+              <div className="flex justify-stretch sm:justify-end">
+                <div className="w-full min-w-0 space-y-1 text-sm sm:min-w-[200px]">
                   {viewInvoice.discount > 0 && (
                     <>
                       <div className="flex justify-between gap-6">

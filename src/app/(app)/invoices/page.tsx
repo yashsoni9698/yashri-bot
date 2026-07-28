@@ -89,7 +89,7 @@ function InvoicesPageContent() {
     setListKey((k) => k + 1);
   }
   return (
-    <div className="mx-auto max-w-6xl space-y-8 p-4 md:p-8">
+    <div className="mx-auto min-w-0 max-w-6xl space-y-6 overflow-x-hidden p-3 sm:space-y-8 sm:p-4 md:p-8">
       <header className="space-y-1">
         <div className="flex items-center gap-2 text-[var(--accent)]">
           <Receipt className="h-5 w-5" />
@@ -139,7 +139,7 @@ export default function InvoicesPage() {
   return (
     <Suspense
       fallback={
-        <div className="mx-auto max-w-6xl p-4 md:p-8">
+        <div className="mx-auto min-w-0 max-w-6xl p-3 sm:p-4 md:p-8">
           <p className="text-sm text-[var(--muted-foreground)]">
             Loading invoice…
           </p>

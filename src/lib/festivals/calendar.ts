@@ -12,13 +12,13 @@ function pad2(n: number): string {
 
 /** Resolve MM-DD recurring festivals to next occurrence YYYY-MM-DD (IST calendar). */
 export function resolveFestivalDate(festival: Festival, from = new Date()): string {
-  if (!festival.recurring && /^\d{4}-\d{2}-\d{2}$/.test(festival.date)) {
-    return festival.date;
+  const stored = festival.date.trim();
+  // Lunar / year-specific dates must not be reduced to MM-DD (e.g. Raksha Bandhan 2026-08-28).
+  if (/^\d{4}-\d{2}-\d{2}$/.test(stored)) {
+    return stored;
   }
 
-  const mmdd = festival.date.includes("-")
-    ? festival.date.slice(-5)
-    : festival.date;
+  const mmdd = stored.includes("-") ? stored.slice(-5) : stored;
   const [mm, dd] = mmdd.split("-").map(Number);
   const { year } = getZonedParts(from);
   const todayKey = todayISOLocal(from);

@@ -25,6 +25,24 @@
     "notify": true
   },
   {
+    "id": "f-lohri",
+    "name": "Lohri",
+    "date": "2026-01-13",
+    "type": "religious",
+    "recurring": false,
+    "notify": true,
+    "description": "Drik Panchang 2026 — day before Makara Sankranti"
+  },
+  {
+    "id": "f-sankranti",
+    "name": "Makara Sankranti",
+    "date": "2026-01-14",
+    "type": "religious",
+    "recurring": false,
+    "notify": true,
+    "description": "Drik Panchang 2026 — Pongal on same day"
+  },
+  {
     "id": "f-martyrs",
     "name": "Martyrs' Day",
     "date": "01-30",
@@ -32,6 +50,15 @@
     "recurring": true,
     "notify": true,
     "description": "Mahatma Gandhi death anniversary"
+  },
+  {
+    "id": "f-mahashivaratri",
+    "name": "Maha Shivaratri",
+    "date": "2026-02-15",
+    "type": "religious",
+    "recurring": false,
+    "notify": true,
+    "description": "Drik Panchang 2026"
   },
   {
     "id": "f-valentines",
@@ -60,10 +87,20 @@
   {
     "id": "f-holi",
     "name": "Holi",
-    "date": "2027-03-03",
+    "date": "2026-03-04",
     "type": "religious",
     "recurring": false,
-    "notify": true
+    "notify": true,
+    "description": "Drik Panchang 2026 — Holika Dahan on March 3"
+  },
+  {
+    "id": "f-ugadi",
+    "name": "Ugadi / Gudi Padwa",
+    "date": "2026-03-19",
+    "type": "religious",
+    "recurring": false,
+    "notify": true,
+    "description": "Drik Panchang 2026"
   },
   {
     "id": "f-ambedkar",
@@ -136,7 +173,7 @@
     "type": "religious",
     "recurring": false,
     "notify": true,
-    "description": "Jagannath Rath Yatra — Puri"
+    "description": "Drik Panchang 2026 — Jagannath Rath Yatra, Puri"
   },
   {
     "id": "f-ashadhi",
@@ -144,7 +181,16 @@
     "date": "2026-07-25",
     "type": "religious",
     "recurring": false,
-    "notify": false
+    "notify": false,
+    "description": "Drik Panchang 2026 — Devshayani Ekadashi"
+  },
+  {
+    "id": "f-guru-purnima",
+    "name": "Guru Purnima",
+    "date": "2026-07-29",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
   },
   {
     "id": "f-kargil",
@@ -152,6 +198,14 @@
     "date": "07-26",
     "type": "national",
     "recurring": true,
+    "notify": true
+  },
+  {
+    "id": "f-hariyali-teej",
+    "name": "Hariyali Teej",
+    "date": "2026-08-15",
+    "type": "religious",
+    "recurring": false,
     "notify": true
   },
   {
@@ -163,17 +217,57 @@
     "notify": true
   },
   {
+    "id": "f-nag-panchami",
+    "name": "Nag Panchami",
+    "date": "2026-08-17",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-onam",
+    "name": "Onam (Thiruonam)",
+    "date": "2026-08-25",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
     "id": "f-rakhi",
     "name": "Raksha Bandhan",
-    "date": "2026-08-09",
+    "date": "2026-08-28",
     "type": "religious",
     "recurring": false,
     "notify": true
   },
   {
     "id": "f-janmashtami",
-    "name": "Janmashtami",
+    "name": "Krishna Janmashtami",
     "date": "2026-09-04",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-ganesh",
+    "name": "Ganesh Chaturthi",
+    "date": "2026-09-14",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-balarama-jayanti",
+    "name": "Balarama Jayanti",
+    "date": "2026-09-16",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-ganesh-visarjan",
+    "name": "Ganesh Visarjan",
+    "date": "2026-09-25",
     "type": "religious",
     "recurring": false,
     "notify": true
@@ -213,17 +307,41 @@
   },
   {
     "id": "f-navratri",
-    "name": "Navratri Begins",
+    "name": "Sharad Navratri Begins",
     "date": "2026-10-11",
     "type": "religious",
     "recurring": false,
     "notify": true
   },
   {
+    "id": "f-durga-ashtami",
+    "name": "Durga Ashtami",
+    "date": "2026-10-18",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
     "id": "f-dussehra",
-    "name": "Dussehra",
+    "name": "Dussehra (Vijayadashami)",
     "date": "2026-10-20",
     "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-karwa-chauth",
+    "name": "Karwa Chauth",
+    "date": "2026-10-28",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-valmiki-jayanti",
+    "name": "Maharishi Valmiki Jayanti",
+    "date": "2026-10-31",
+    "type": "jayanti",
     "recurring": false,
     "notify": true
   },
@@ -236,9 +354,49 @@
     "notify": true
   },
   {
+    "id": "f-dhanteras",
+    "name": "Dhanteras",
+    "date": "2026-11-06",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
     "id": "f-diwali",
-    "name": "Diwali",
+    "name": "Diwali (Deepavali)",
     "date": "2026-11-08",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-govardhan",
+    "name": "Govardhan Puja",
+    "date": "2026-11-10",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-bhai-dooj",
+    "name": "Bhaiya Dooj",
+    "date": "2026-11-11",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-chhath",
+    "name": "Chhath Puja",
+    "date": "2026-11-15",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f-guru-nanak",
+    "name": "Guru Nanak Jayanti",
+    "date": "2026-11-24",
     "type": "religious",
     "recurring": false,
     "notify": true
@@ -268,8 +426,16 @@
     "notify": true
   },
   {
+    "id": "f-geeta-jayanti",
+    "name": "Geeta Jayanti",
+    "date": "2026-12-20",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
     "id": "f-christmas",
-    "name": "Christmas",
+    "name": "Christmas Day",
     "date": "12-25",
     "type": "religious",
     "recurring": true,
@@ -308,11 +474,102 @@
     "notify": true
   },
   {
-    "id": "f-guru-purnima",
-    "name": "Guru Purnima",
-    "date": "2026-07-29",
+    "id": "f27-lohri",
+    "name": "Lohri",
+    "date": "2027-01-14",
     "type": "religious",
     "recurring": false,
-    "notify": false
+    "notify": true
+  },
+  {
+    "id": "f27-sankranti",
+    "name": "Makara Sankranti",
+    "date": "2027-01-15",
+    "type": "religious",
+    "recurring": false,
+    "notify": true,
+    "description": "Pongal on same day"
+  },
+  {
+    "id": "f27-mahashivaratri",
+    "name": "Maha Shivaratri",
+    "date": "2027-03-06",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f27-holi",
+    "name": "Holi",
+    "date": "2027-03-22",
+    "type": "religious",
+    "recurring": false,
+    "notify": true,
+    "description": "Holika Dahan on March 21"
+  },
+  {
+    "id": "f27-ugadi",
+    "name": "Ugadi / Gudi Padwa",
+    "date": "2027-04-07",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f27-baisakhi",
+    "name": "Baisakhi",
+    "date": "2027-04-14",
+    "type": "religious",
+    "recurring": false,
+    "notify": true,
+    "description": "Mesha Sankranti"
+  },
+  {
+    "id": "f27-rama-navami",
+    "name": "Rama Navami",
+    "date": "2027-04-15",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f27-buddha-purnima",
+    "name": "Buddha Purnima",
+    "date": "2027-05-20",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f27-ganga-dussehra",
+    "name": "Ganga Dussehra",
+    "date": "2027-06-13",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f27-kabirdas",
+    "name": "Kabirdas Jayanti",
+    "date": "2027-06-18",
+    "type": "jayanti",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f27-vasant-panchami",
+    "name": "Vasant Panchami",
+    "date": "2027-02-10",
+    "type": "religious",
+    "recurring": false,
+    "notify": true
+  },
+  {
+    "id": "f27-maharana-pratap",
+    "name": "Maharana Pratap Jayanti",
+    "date": "2027-06-07",
+    "type": "jayanti",
+    "recurring": false,
+    "notify": true
   }
 ]

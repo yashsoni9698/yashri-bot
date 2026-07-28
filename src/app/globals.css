@@ -308,6 +308,232 @@ body {
   mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, black 20%, transparent 75%);
 }
 
+/* ——— Login full-screen animated backdrop ——— */
+.login-bg-scene {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: var(--background);
+}
+
+.login-bg-base {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(
+      ellipse 90% 55% at 50% -15%,
+      color-mix(in oklab, var(--accent) 14%, transparent),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 55% 45% at 100% 85%,
+      color-mix(in oklab, #6366f1 10%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      ellipse 50% 40% at 0% 70%,
+      color-mix(in oklab, var(--accent-strong) 12%, transparent),
+      transparent 50%
+    );
+}
+
+.login-bg-mesh {
+  position: absolute;
+  width: min(120vw, 720px);
+  height: min(120vw, 720px);
+  border-radius: 50%;
+  filter: blur(72px);
+  opacity: 0.55;
+  mix-blend-mode: normal;
+}
+
+.login-bg-mesh-a {
+  top: -18%;
+  right: -22%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, #2dd4bf 35%, transparent) 0%,
+    transparent 68%
+  );
+  animation: login-bg-mesh-drift-a 22s ease-in-out infinite;
+}
+
+.login-bg-mesh-b {
+  bottom: -25%;
+  left: -28%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklab, #818cf8 28%, transparent) 0%,
+    transparent 70%
+  );
+  animation: login-bg-mesh-drift-b 26s ease-in-out infinite;
+}
+
+.login-bg-grid-drift {
+  position: absolute;
+  inset: -20%;
+  opacity: 0.85;
+  animation: login-bg-grid-drift 48s linear infinite;
+}
+
+.login-bg-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(56px);
+  opacity: 0.5;
+}
+
+.login-bg-orb-1 {
+  top: 12%;
+  left: 8%;
+  width: min(42vw, 220px);
+  height: min(42vw, 220px);
+  background: rgba(45, 212, 191, 0.35);
+  animation: login-bg-float-1 18s ease-in-out infinite;
+}
+
+.login-bg-orb-2 {
+  top: 55%;
+  right: 5%;
+  width: min(50vw, 280px);
+  height: min(50vw, 280px);
+  background: rgba(99, 102, 241, 0.22);
+  animation: login-bg-float-2 24s ease-in-out infinite;
+}
+
+.login-bg-orb-3 {
+  bottom: 18%;
+  left: 35%;
+  width: min(38vw, 200px);
+  height: min(38vw, 200px);
+  background: rgba(15, 118, 110, 0.28);
+  animation: login-bg-float-3 20s ease-in-out infinite;
+}
+
+.login-bg-shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    color-mix(in oklab, var(--accent) 6%, transparent) 50%,
+    transparent 60%
+  );
+  background-size: 200% 100%;
+  opacity: 0.7;
+  animation: login-bg-shimmer 12s ease-in-out infinite;
+}
+
+
+@keyframes login-bg-grid-drift {
+  0% {
+    transform: translate(0, 0);
+  }
+  100% {
+    transform: translate(28px, 28px);
+  }
+}
+
+@keyframes login-bg-mesh-drift-a {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(-4%, 6%) scale(1.08);
+  }
+}
+
+@keyframes login-bg-mesh-drift-b {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  50% {
+    transform: translate(5%, -4%) scale(1.06);
+  }
+}
+
+@keyframes login-bg-float-1 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  33% {
+    transform: translate(12px, 18px);
+  }
+  66% {
+    transform: translate(-8px, 10px);
+  }
+}
+
+@keyframes login-bg-float-2 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(-16px, -12px);
+  }
+}
+
+@keyframes login-bg-float-3 {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  40% {
+    transform: translate(10px, -14px);
+  }
+  70% {
+    transform: translate(-6px, 8px);
+  }
+}
+
+@keyframes login-bg-shimmer {
+  0%,
+  100% {
+    background-position: 120% 0;
+    opacity: 0.35;
+  }
+  50% {
+    background-position: -20% 0;
+    opacity: 0.65;
+  }
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  .login-bg-grid-drift,
+  .login-bg-mesh-a,
+  .login-bg-mesh-b,
+  .login-bg-orb-1,
+  .login-bg-orb-2,
+  .login-bg-orb-3,
+  .login-bg-shimmer {
+    animation: none;
+  }
+}
+
+.dark .login-bg-orb-1 {
+  background: rgba(45, 212, 191, 0.22);
+}
+
+.dark .login-bg-orb-2 {
+  background: rgba(129, 140, 248, 0.18);
+}
+
+.dark .login-bg-orb-3 {
+  background: rgba(20, 184, 166, 0.2);
+}
+
+.dark .login-bg-shimmer {
+  opacity: 0.45;
+}
+
+
 .dark .animate-glow-pulse {
   animation-name: yashri-glow-pulse-dark;
 }

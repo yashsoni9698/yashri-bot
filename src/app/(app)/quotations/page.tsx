@@ -21,7 +21,7 @@ export default function QuotationsPage() {
   }, []);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 p-4 md:p-8">
+    <div className="mx-auto min-w-0 max-w-6xl space-y-6 overflow-x-hidden p-3 sm:p-4 md:p-8">
       <header className="space-y-1">
         <div className="flex items-center gap-2 text-[var(--accent)]">
           <FileSpreadsheet className="h-5 w-5" />

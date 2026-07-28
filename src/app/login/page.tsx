@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { Bot, Loader2, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { LoginAiRobot } from "@/components/auth/LoginAiRobot";
+import { LoginBackground } from "@/components/auth/LoginBackground";
 
 function AiLogo() {
   return (
@@ -78,6 +79,7 @@ function LoginForm() {
 
   return (
     <div className="relative min-h-dvh overflow-x-hidden">
+      <LoginBackground />
       <div className="login-ai-aurora login-ai-aurora-center" aria-hidden />
 
       {/* Login — always centered */}
@@ -172,9 +174,10 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-dvh items-center justify-center gap-2 text-sm text-[var(--muted-foreground)]">
-          <Loader2 className="h-4 w-4 animate-spin text-[var(--accent)]" />
-          Loading…
+        <div className="relative flex min-h-dvh items-center justify-center gap-2 text-sm text-[var(--muted-foreground)]">
+          <LoginBackground />
+          <Loader2 className="relative z-10 h-4 w-4 animate-spin text-[var(--accent)]" />
+          <span className="relative z-10">Loading…</span>
         </div>
       }
     >

@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Badge, Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { formatDate, toStorageDate } from "@/lib/utils";
+import { cn, formatDate, todayISOLocal, toStorageDate } from "@/lib/utils";
 
 interface Festival {
   id: string;
@@ -50,61 +51,94 @@ const emptyForm = {
   description: "",
 };
 
-/** Extract 1–12 month from YYYY-MM-DD or MM-DD (or null if unparseable). */
-function monthIndex(date: string): number | null {
-  const parts = date.trim().split("-");
-  if (parts.length === 3) {
-    const m = Number(parts[1]);
-    return m >= 1 && m <= 12 ? m : null;
+const CALENDAR_RANGE_END = { year: 2027, month: 6 };
+
+function inCalendarRange(year: number, month: number): boolean {
+  if (year < 2026) return false;
+  if (year > CALENDAR_RANGE_END.year) return false;
+  if (year === CALENDAR_RANGE_END.year && month > CALENDAR_RANGE_END.month) {
+    return false;
   }
-  if (parts.length === 2) {
-    const m = Number(parts[0]);
-    return m >= 1 && m <= 12 ? m : null;
-  }
-  return null;
+  return true;
 }
 
-function dayOfMonth(date: string): number {
-  const parts = date.trim().split("-");
-  if (parts.length === 3) return Number(parts[2]) || 0;
-  if (parts.length === 2) return Number(parts[1]) || 0;
-  return 0;
+/** Place a festival in one or more year–month buckets (recurring → each year through Jun 2027). */
+function placementsFor(f: Festival): Array<{
+  year: number;
+  month: number;
+  day: number;
+}> {
+  const d = f.date.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+    const [y, m, day] = d.split("-").map(Number);
+    if (!inCalendarRange(y, m)) return [];
+    return [{ year: y, month: m, day }];
+  }
+  if (/^\d{2}-\d{2}$/.test(d)) {
+    const [m, day] = d.split("-").map(Number);
+    if (!f.recurring) {
+      return inCalendarRange(2026, m) ? [{ year: 2026, month: m, day }] : [];
+    }
+    const out: Array<{ year: number; month: number; day: number }> = [];
+    for (let y = 2026; y <= CALENDAR_RANGE_END.year; y++) {
+      if (!inCalendarRange(y, m)) continue;
+      out.push({ year: y, month: m, day });
+    }
+    return out;
+  }
+  return [];
 }
 
 function groupByMonth(festivals: Festival[]): Array<{
+  key: string;
   month: number;
+  year: number;
   label: string;
   items: Festival[];
 }> {
-  const buckets = new Map<number, Festival[]>();
+  const buckets = new Map<
+    string,
+    { year: number; month: number; items: Array<{ f: Festival; day: number }> }
+  >();
   const other: Festival[] = [];
 
   for (const f of festivals) {
-    const m = monthIndex(f.date);
-    if (m == null) {
+    const placements = placementsFor(f);
+    if (!placements.length) {
       other.push(f);
       continue;
     }
-    const list = buckets.get(m) || [];
-    list.push(f);
-    buckets.set(m, list);
+    for (const p of placements) {
+      const key = `${p.year}-${String(p.month).padStart(2, "0")}`;
+      const bucket = buckets.get(key) || {
+        year: p.year,
+        month: p.month,
+        items: [],
+      };
+      bucket.items.push({ f, day: p.day });
+      buckets.set(key, bucket);
+    }
   }
 
-  const groups: Array<{ month: number; label: string; items: Festival[] }> =
-    Array.from(buckets.entries())
-      .sort(([a], [b]) => a - b)
-      .map(([month, items]) => ({
-        month,
-        label: MONTH_NAMES[month - 1],
-        items: [...items].sort(
+  const groups = Array.from(buckets.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([, bucket]) => ({
+      key: `${bucket.year}-${String(bucket.month).padStart(2, "0")}`,
+      year: bucket.year,
+      month: bucket.month,
+      label: `${MONTH_NAMES[bucket.month - 1]} ${bucket.year}`,
+      items: [...bucket.items]
+        .sort(
           (a, b) =>
-            dayOfMonth(a.date) - dayOfMonth(b.date) ||
-            a.name.localeCompare(b.name)
-        ),
-      }));
+            a.day - b.day || a.f.name.localeCompare(b.f.name)
+        )
+        .map((x) => x.f),
+    }));
 
   if (other.length) {
     groups.push({
+      key: "other",
+      year: 0,
       month: 0,
       label: "Other",
       items: [...other].sort(
@@ -116,21 +150,76 @@ function groupByMonth(festivals: Festival[]): Array<{
   return groups;
 }
 
+function currentYearMonthKey(): string {
+  return todayISOLocal().slice(0, 7);
+}
+
+function defaultExpandedForGroups(
+  groupKeys: string[]
+): Record<string, boolean> {
+  const current = currentYearMonthKey();
+  const out: Record<string, boolean> = {};
+  for (const key of groupKeys) {
+    if (key === "other") {
+      out[key] = true;
+      continue;
+    }
+    out[key] = key >= current;
+  }
+  return out;
+}
+
 export default function FestivalsPage() {
   const [festivals, setFestivals] = useState<Festival[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [expandedMonths, setExpandedMonths] = useState<Record<string, boolean>>(
+    {}
+  );
+
+  const groups = useMemo(() => groupByMonth(festivals), [festivals]);
+
+  useEffect(() => {
+    if (!groups.length) return;
+    setExpandedMonths((prev) => {
+      if (Object.keys(prev).length > 0) return prev;
+      return defaultExpandedForGroups(groups.map((g) => g.key));
+    });
+  }, [groups]);
+
+  function toggleMonth(key: string) {
+    setExpandedMonths((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function expandAllMonths() {
+    const next: Record<string, boolean> = {};
+    for (const g of groups) next[g.key] = true;
+    setExpandedMonths(next);
+  }
+
+  function collapseAllMonths() {
+    const next: Record<string, boolean> = {};
+    for (const g of groups) next[g.key] = false;
+    setExpandedMonths(next);
+  }
 
   async function load() {
     const res = await fetch("/api/festivals");
     const festData = await res.json();
     const list: Festival[] = festData.festivals || [];
     setFestivals(
-      [...list].sort(
-        (a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name)
-      )
+      [...list].sort((a, b) => {
+        const sortDate = (f: Festival) => {
+          const p = placementsFor(f)[0];
+          if (p) {
+            return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
+          }
+          return f.date;
+        };
+        return sortDate(a).localeCompare(sortDate(b)) || a.name.localeCompare(b.name);
+      })
     );
   }
 
@@ -218,8 +307,6 @@ export default function FestivalsPage() {
     load();
   }
 
-  const groups = groupByMonth(festivals);
-
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 md:p-8">
       <header className="flex flex-wrap items-end justify-between gap-3">
@@ -233,6 +320,22 @@ export default function FestivalsPage() {
         </div>
         <Button onClick={startAdd}>Add festival</Button>
       </header>
+
+      {groups.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={expandAllMonths}>
+            Expand all
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={collapseAllMonths}
+          >
+            Collapse all
+          </Button>
+        </div>
+      )}
 
       {showForm && (
         <Card>
@@ -318,62 +421,87 @@ export default function FestivalsPage() {
         </Card>
       )}
 
-      <div className="space-y-8">
-        {groups.map((group) => (
-          <section key={group.label} className="space-y-3">
-            <div className="flex items-baseline justify-between gap-3 border-b border-[var(--border)] pb-2">
-              <h2 className="text-xs font-medium uppercase tracking-wide text-[var(--muted-foreground)]">
-                {group.label}
-              </h2>
-              <span className="text-xs text-[var(--muted-foreground)]">
-                {group.items.length}{" "}
-                {group.items.length === 1 ? "festival" : "festivals"}
-              </span>
-            </div>
-            {group.items.map((f) => (
-              <Card
-                key={f.id}
-                className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+      <div className="space-y-4">
+        {groups.map((group) => {
+          const open = expandedMonths[group.key] ?? false;
+          return (
+            <section
+              key={group.key}
+              className="overflow-hidden rounded-xl border border-[var(--border)]"
+            >
+              <button
+                type="button"
+                onClick={() => toggleMonth(group.key)}
+                aria-expanded={open}
+                className="flex w-full items-center justify-between gap-3 border-b border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-left transition-colors hover:bg-[var(--accent-soft)]/30"
               >
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-semibold">{f.name}</h3>
-                    <Badge>{f.type}</Badge>
-                    {!f.notify && <Badge tone="default">hidden</Badge>}
-                    {f.recurring && <Badge tone="default">recurring</Badge>}
-                  </div>
-                  <p className="text-sm text-[var(--muted-foreground)]">
-                    {formatDate(f.date)}
-                    {f.description ? ` · ${f.description}` : ""}
-                  </p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <ChevronDown
+                    className={cn(
+                      "h-4 w-4 shrink-0 text-[var(--muted-foreground)] transition-transform duration-200",
+                      open && "rotate-180"
+                    )}
+                  />
+                  <h2 className="text-xs font-medium uppercase tracking-wide text-[var(--foreground)]">
+                    {group.label}
+                  </h2>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => startEdit(f)}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => toggleNotify(f)}
-                  >
-                    {f.notify ? "Hide" : "Show"}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => remove(f.id)}
-                  >
-                    Remove
-                  </Button>
+                <span className="shrink-0 text-xs text-[var(--muted-foreground)]">
+                  {group.items.length}{" "}
+                  {group.items.length === 1 ? "festival" : "festivals"}
+                </span>
+              </button>
+              {open && (
+                <div className="space-y-3 p-4 pt-3">
+                  {group.items.map((f) => (
+                    <Card
+                      key={`${group.key}-${f.id}`}
+                      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-semibold">{f.name}</h3>
+                          <Badge>{f.type}</Badge>
+                          {!f.notify && <Badge tone="default">hidden</Badge>}
+                          {f.recurring && (
+                            <Badge tone="default">recurring</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-[var(--muted-foreground)]">
+                          {formatDate(f.date)}
+                          {f.description ? ` · ${f.description}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => startEdit(f)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => toggleNotify(f)}
+                        >
+                          {f.notify ? "Hide" : "Show"}
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => remove(f.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
-              </Card>
-            ))}
-          </section>
-        ))}
+              )}
+            </section>
+          );
+        })}
         {!festivals.length && (
           <p className="text-[var(--muted-foreground)]">No festivals yet.</p>
         )}
