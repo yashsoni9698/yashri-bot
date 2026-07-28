@@ -912,22 +912,22 @@ export function InvoiceList() {
               </div>
 
               <div className="flex justify-stretch sm:justify-end">
-                <div className="w-full min-w-0 space-y-1 text-sm sm:min-w-[200px]">
-                  {viewInvoice.discount > 0 && (
-                    <>
-                      <div className="flex justify-between gap-6">
-                        <span className="text-[var(--muted-foreground)]">Sub Total</span>
-                        <span>{formatRupee(viewInvoice.subTotal)}</span>
-                      </div>
-                      <div className="flex justify-between gap-6">
-                        <span className="text-[var(--muted-foreground)]">Discount</span>
-                        <span>{formatRupee(viewInvoice.discount)}</span>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex justify-between gap-6 font-bold">
-                    <span>Grand Total</span>
-                    <span>{formatRupee(viewInvoice.grandTotal)}</span>
+                <div className="w-full min-w-0 space-y-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 text-sm sm:min-w-[220px]">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[var(--muted-foreground)]">Sub Total</span>
+                    <span className="font-medium">{formatRupee(viewInvoice.subTotal)}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[var(--muted-foreground)]">Discount</span>
+                    <span className="font-medium">
+                      {viewInvoice.discount > 0 ? formatRupee(viewInvoice.discount) : "—"}
+                    </span>
+                  </div>
+                  <div className="mt-2 border-t border-[var(--border)] pt-2">
+                    <div className="flex items-center justify-between gap-3 font-bold">
+                      <span>Grand Total</span>
+                      <span>{formatRupee(viewInvoice.grandTotal)}</span>
+                    </div>
                   </div>
                 </div>
               </div>

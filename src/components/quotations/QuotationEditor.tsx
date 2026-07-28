@@ -750,10 +750,11 @@ export function QuotationEditor({
           </table>
 
           <div className="mt-6 flex justify-stretch sm:justify-end">
-            <div className="w-full min-w-0 max-w-md space-y-2 text-sm text-[#1e293b] sm:min-w-[220px]">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-                <span className="font-medium">Discount</span>
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <div className="w-full min-w-0 max-w-md space-y-2 text-sm text-[var(--foreground)] sm:min-w-[220px]">
+              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+                  <span className="font-medium">Discount</span>
+                  <div className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end">
                   <div className="flex rounded-md border border-[var(--border)] p-0.5">
                     <button
                       type="button"
@@ -798,22 +799,31 @@ export function QuotationEditor({
                     placeholder="0"
                     className={cn(cellInputClass, "w-20 text-right")}
                   />
-                  {discountType === "percent" && discountAmount > 0 && (
-                    <span className="shrink-0 text-xs text-[var(--muted-foreground)]">
-                      = {formatRupee(discountAmount)}
-                    </span>
-                  )}
+                    {discountType === "percent" && (
+                      <span className="shrink-0 text-xs text-[var(--muted-foreground)]">
+                        = {formatRupee(discountAmount)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-              {discountAmount > 0 && (
-                <div className="flex justify-between gap-8">
-                  <span>Sub Total</span>
-                  <span>{formatRupee(total)}</span>
+              <div className="space-y-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[var(--muted-foreground)]">Sub Total</span>
+                  <span className="font-medium">{formatRupee(total)}</span>
                 </div>
-              )}
-              <div className="flex justify-between gap-8 text-base font-bold">
-                <span>Grand Total</span>
-                <span>{formatRupee(grandTotal)}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[var(--muted-foreground)]">Discount</span>
+                  <span className="font-medium">
+                    {discountAmount > 0 ? formatRupee(discountAmount) : "—"}
+                  </span>
+                </div>
+                <div className="mt-2 border-t border-[var(--border)] pt-2">
+                  <div className="flex items-center justify-between gap-3 text-base font-bold">
+                    <span>Grand Total</span>
+                    <span>{formatRupee(grandTotal)}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
