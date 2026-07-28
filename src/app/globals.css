@@ -72,6 +72,15 @@ html {
   text-size-adjust: 100%;
 }
 
+/* Prevent iOS Safari auto-zoom on focus (requires ≥16px font on inputs). */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 body {
   min-height: 100%;
   overflow-x: hidden;

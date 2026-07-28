@@ -57,11 +57,12 @@ import {
 import type { QuotationColumn, QuotationDraft, QuotationRow, QuotationTemplate } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+/** text-base (≥16px) on mobile prevents iOS Safari focus-zoom; shrink on md+. */
 const cellInputClass =
-  "w-full min-w-0 rounded-md border border-transparent bg-transparent px-1.5 py-0 text-sm outline-none transition-colors hover:border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--muted)]";
+  "w-full min-w-0 rounded-md border border-transparent bg-transparent px-1.5 py-1.5 text-base outline-none transition-colors hover:border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--muted)] md:py-0 md:text-sm";
 
 const cellTextareaClass =
-  "w-full min-w-0 resize-none rounded-md border border-transparent bg-transparent px-1.5 py-1 text-sm leading-snug outline-none transition-colors hover:border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--muted)]";
+  "w-full min-w-0 resize-none rounded-md border border-transparent bg-transparent px-1.5 py-1.5 text-base leading-snug outline-none transition-colors hover:border-[var(--border)] focus:border-[var(--accent)] focus:bg-[var(--muted)] md:py-1 md:text-sm";
 
 type QuotationEditorProps = {
   templates: QuotationTemplate[];
@@ -257,7 +258,7 @@ export function QuotationEditor({
   function renderCell(row: QuotationRow, col: QuotationColumn) {
     if (col.type === "srNo") {
       return (
-        <span className="block py-0 text-center text-xs font-medium text-[var(--muted-foreground)]">
+        <span className="block py-1.5 text-center text-base font-medium text-[var(--muted-foreground)] md:py-0 md:text-xs">
           {row.cells[col.id]}
         </span>
       );
@@ -265,7 +266,7 @@ export function QuotationEditor({
     if (col.type === "lineTotal") {
       const val = rowLineTotal(row);
       return (
-        <span className="block py-0 text-right text-sm font-medium">
+        <span className="block py-1.5 text-right text-base font-medium md:py-0 md:text-sm">
           {col.useRupee === false ? val.toFixed(2) : formatRupee(val)}
         </span>
       );
@@ -273,7 +274,9 @@ export function QuotationEditor({
     if (col.type === "amount") {
       return (
         <div className="flex items-center justify-end py-0">
-          {col.useRupee ? <span className="shrink-0 pr-1 text-sm">₹</span> : null}
+          {col.useRupee ? (
+            <span className="shrink-0 pr-1 text-base md:text-sm">₹</span>
+          ) : null}
           <input
             type="text"
             inputMode="decimal"
@@ -290,7 +293,9 @@ export function QuotationEditor({
     if (col.type === "unitPrice") {
       return (
         <div className="flex items-center justify-end py-0">
-          {col.useRupee ? <span className="shrink-0 pr-1 text-sm">₹</span> : null}
+          {col.useRupee ? (
+            <span className="shrink-0 pr-1 text-base md:text-sm">₹</span>
+          ) : null}
           <input
             type="text"
             inputMode="decimal"
@@ -584,7 +589,7 @@ export function QuotationEditor({
                 }}
                 placeholder="Client address"
                 rows={3}
-                className="flex min-h-[4.5rem] w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-[var(--accent)]"
+                className="flex min-h-[4.5rem] w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-base outline-none transition-colors placeholder:text-[var(--muted-foreground)] focus:border-[var(--accent)] md:text-sm"
               />
             </div>
             <div>
@@ -676,18 +681,18 @@ export function QuotationEditor({
           </div>
         </div>
 
-        <div className="-mx-1 overflow-x-auto overscroll-x-contain px-1 touch-pan-x sm:mx-0 sm:px-0">
-          <p className="mb-2 text-[10px] text-[var(--muted-foreground)] md:hidden">
+        <div className="quotation-table-editor -mx-1 overflow-x-auto overscroll-x-contain px-1 touch-pan-x sm:mx-0 sm:px-0">
+          <p className="mb-2 text-xs text-[var(--muted-foreground)] md:hidden">
             Swipe horizontally to edit all columns
           </p>
-          <table className="w-full min-w-[36rem] table-fixed border-collapse border border-[var(--border)] text-sm sm:min-w-[40rem]">
+          <table className="w-full min-w-[36rem] table-fixed border-collapse border border-[var(--border)] text-base sm:min-w-[40rem] md:text-sm">
             <thead>
               <tr>
                 {quotation.columns.map((col) => (
                   <th
                     key={col.id}
                     className={cn(
-                      "border border-[var(--border)] px-2 py-2 text-[11px] font-bold uppercase tracking-wide text-[#1e293b]",
+                      "border border-[var(--border)] px-2 py-2 text-xs font-bold uppercase tracking-wide text-[var(--foreground)] md:text-[11px]",
                       columnHeaderAlignClass(col),
                       columnWidthClass(col.type)
                     )}
@@ -704,12 +709,12 @@ export function QuotationEditor({
                         onChange={(e) =>
                           updateColumnLabel(col.id, e.target.value)
                         }
-                        className="min-w-0 flex-1 bg-transparent text-center font-bold uppercase outline-none"
+                        className="min-w-0 flex-1 bg-transparent text-center text-base font-bold uppercase outline-none md:text-[11px]"
                       />
                       <button
                         type="button"
                         onClick={() => removeColumn(col)}
-                        className="rounded p-0.5 text-[var(--muted-foreground)] hover:text-red-600"
+                        className="rounded p-1 text-[var(--muted-foreground)] hover:text-red-600"
                         title="Remove column"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -727,18 +732,18 @@ export function QuotationEditor({
                     <td
                       key={col.id}
                       className={cn(
-                        "border border-[var(--border)] px-2 py-0.5 align-middle",
+                        "border border-[var(--border)] px-2 py-1 align-middle md:py-0.5",
                         columnWidthClass(col.type)
                       )}
                     >
                       {renderCell(row, col)}
                     </td>
                   ))}
-                  <td className="border border-[var(--border)] px-1 py-0.5 align-middle">
+                  <td className="border border-[var(--border)] px-1 py-1 align-middle md:py-0.5">
                     <button
                       type="button"
                       onClick={() => removeRow(row.id)}
-                      className="rounded p-1 text-[var(--muted-foreground)] hover:text-red-600"
+                      className="rounded p-1.5 text-[var(--muted-foreground)] hover:text-red-600"
                       title="Remove row"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -748,13 +753,14 @@ export function QuotationEditor({
               ))}
             </tbody>
           </table>
+        </div>
 
-          <div className="mt-6 flex justify-stretch sm:justify-end">
-            <div className="w-full min-w-0 max-w-md space-y-2 text-sm text-[var(--foreground)] sm:min-w-[220px]">
-              <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
-                  <span className="font-medium">Discount</span>
-                  <div className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end">
+        <div className="mt-6 flex justify-stretch sm:justify-end">
+          <div className="w-full min-w-0 max-w-md space-y-2 text-base text-[var(--foreground)] sm:min-w-[220px] md:text-sm">
+            <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+                <span className="font-medium">Discount</span>
+                <div className="flex flex-wrap items-center justify-start gap-1.5 sm:justify-end">
                   <div className="flex rounded-md border border-[var(--border)] p-0.5">
                     <button
                       type="button"
@@ -762,7 +768,7 @@ export function QuotationEditor({
                         setQuotation((q) => ({ ...q, discountType: "amount" }))
                       }
                       className={cn(
-                        "rounded px-2 py-0.5 text-xs font-medium transition-colors",
+                        "rounded px-2.5 py-1 text-sm font-medium transition-colors",
                         discountType === "amount"
                           ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                           : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
@@ -777,7 +783,7 @@ export function QuotationEditor({
                         setQuotation((q) => ({ ...q, discountType: "percent" }))
                       }
                       className={cn(
-                        "rounded px-2 py-0.5 text-xs font-medium transition-colors",
+                        "rounded px-2.5 py-1 text-sm font-medium transition-colors",
                         discountType === "percent"
                           ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
                           : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
@@ -797,32 +803,34 @@ export function QuotationEditor({
                       updateHeader("discount", e.target.value)
                     }
                     placeholder="0"
-                    className={cn(cellInputClass, "w-20 text-right")}
-                  />
-                    {discountType === "percent" && (
-                      <span className="shrink-0 text-xs text-[var(--muted-foreground)]">
-                        = {formatRupee(discountAmount)}
-                      </span>
+                    className={cn(
+                      cellInputClass,
+                      "w-24 border border-[var(--border)] bg-[var(--surface)] px-2 text-right"
                     )}
-                  </div>
+                  />
+                  {discountType === "percent" && (
+                    <span className="shrink-0 text-sm text-[var(--muted-foreground)]">
+                      = {formatRupee(discountAmount)}
+                    </span>
+                  )}
                 </div>
               </div>
-              <div className="space-y-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--muted-foreground)]">Sub Total</span>
-                  <span className="font-medium">{formatRupee(total)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-[var(--muted-foreground)]">Discount</span>
-                  <span className="font-medium">
-                    {discountAmount > 0 ? formatRupee(discountAmount) : "—"}
-                  </span>
-                </div>
-                <div className="mt-2 border-t border-[var(--border)] pt-2">
-                  <div className="flex items-center justify-between gap-3 text-base font-bold">
-                    <span>Grand Total</span>
-                    <span>{formatRupee(grandTotal)}</span>
-                  </div>
+            </div>
+            <div className="space-y-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[var(--muted-foreground)]">Sub Total</span>
+                <span className="font-medium">{formatRupee(total)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-[var(--muted-foreground)]">Discount</span>
+                <span className="font-medium">
+                  {discountAmount > 0 ? formatRupee(discountAmount) : "—"}
+                </span>
+              </div>
+              <div className="mt-2 border-t border-[var(--border)] pt-2">
+                <div className="flex items-center justify-between gap-3 text-base font-bold">
+                  <span>Grand Total</span>
+                  <span>{formatRupee(grandTotal)}</span>
                 </div>
               </div>
             </div>

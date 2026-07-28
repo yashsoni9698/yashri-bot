@@ -80,7 +80,7 @@ export const Select = React.forwardRef<HTMLButtonElement, SelectProps>(
           id={id}
           aria-label={ariaLabel}
           className={cn(
-            "inline-flex h-10 w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-solid)] px-3 text-left text-sm text-[var(--foreground)] shadow-sm transition-colors",
+            "inline-flex h-11 w-full items-center justify-between gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-solid)] px-3 text-left text-base text-[var(--foreground)] shadow-sm transition-colors md:h-10 md:text-sm",
             "hover:bg-[var(--muted)]",
             "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]",
             "disabled:cursor-not-allowed disabled:opacity-55",
