@@ -105,7 +105,7 @@ function applyDueWorkRollover(tasks: Task[]): boolean {
 
   for (let i = 0; i < tasks.length; i++) {
     const t = tasks[i];
-    if (t.status !== "todo" || !t.deadline) continue;
+    if (t.status !== "todo" || !t.deadline || t.wishlist) continue;
     if (t.deadline === tomorrow && t.dueWork) continue;
 
     let due: Date;
@@ -154,6 +154,7 @@ export function createTask(
   }
 ): Task {
   const now = new Date().toISOString();
+  const wishlist = Boolean(input.wishlist);
   const task: Task = {
     id: uuid(),
     status: input.status || "todo",
@@ -161,10 +162,11 @@ export function createTask(
     projectName: input.projectName,
     requirements: input.requirements || [],
     priority: input.priority || "low",
-    deadline: input.deadline,
+    deadline: wishlist ? "" : input.deadline,
     amount: input.amount ?? 0,
     notes: input.notes,
     tags: input.tags,
+    wishlist: wishlist || undefined,
     createdAt: now,
     updatedAt: now,
   };
@@ -193,6 +195,18 @@ export function updateTask(id: string, patch: Partial<Task>): Task | null {
   if (patch.status && patch.status !== "todo") {
     next.dueWork = false;
   }
+
+  // Wishlist has no deadline; leaving wishlist / setting a date clears the flag
+  if (patch.wishlist === true) {
+    next.deadline = "";
+    next.dueWork = false;
+  } else if (
+    patch.wishlist === false ||
+    (patch.deadline !== undefined && patch.deadline !== "")
+  ) {
+    next.wishlist = false;
+  }
+  if (!next.wishlist) delete (next as { wishlist?: boolean }).wishlist;
 
   tasks[idx] = next;
   saveTasks(tasks);
@@ -397,25 +411,35 @@ function syncTasksMarkdown(tasks: Task[]) {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const todayTasks = todo.filter((t) => {
+  const wishlistTasks = todo.filter((t) => t.wishlist);
+  const scheduled = todo.filter((t) => !t.wishlist && t.deadline);
+  const todayTasks = scheduled.filter((t) => {
     const d = new Date(t.deadline);
     d.setHours(0, 0, 0, 0);
     return d.getTime() <= today.getTime();
   });
-  const tomorrowTasks = todo.filter((t) => {
+  const tomorrowTasks = scheduled.filter((t) => {
     const d = new Date(t.deadline);
     d.setHours(0, 0, 0, 0);
     return d.getTime() === tomorrow.getTime();
   });
-  const futureTasks = todo.filter((t) => {
+  const futureTasks = scheduled.filter((t) => {
     const d = new Date(t.deadline);
     d.setHours(0, 0, 0, 0);
     return d.getTime() > tomorrow.getTime();
   });
 
+  const fmtWish = (list: Task[]) =>
+    list
+      .map(
+        (t) =>
+          `- **${t.projectName}** (${t.clientName}) — ${t.priority} — no deadline`
+      )
+      .join("\n") || "_None_";
+
   writeMarkdown(
     path.join(getDataRoot(), "tasks", "today.md"),
-    `# Tasks\n\n## Today's Tasks\n\n${fmt(todayTasks)}\n\n## Tomorrow's Tasks\n\n${fmt(tomorrowTasks)}\n\n## Future Tasks\n\n${fmt(futureTasks)}\n\n## Payment Pending\n\n${fmt(pending)}\n\n## Job Done\n\n${fmt(done)}\n`
+    `# Tasks\n\n## Today's Tasks\n\n${fmt(todayTasks)}\n\n## Tomorrow's Tasks\n\n${fmt(tomorrowTasks)}\n\n## Future Tasks\n\n${fmt(futureTasks)}\n\n## Wishlist\n\n${fmtWish(wishlistTasks)}\n\n## Payment Pending\n\n${fmt(pending)}\n\n## Job Done\n\n${fmt(done)}\n`
   );
 }
 

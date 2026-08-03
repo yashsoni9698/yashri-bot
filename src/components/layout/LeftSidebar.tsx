@@ -16,10 +16,16 @@ import {
   Receipt,
   PanelLeftClose,
   PanelLeft,
+  LogOut,
   X,
 } from "lucide-react";
 import { cn, priorityToneClass } from "@/lib/utils";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+
+async function handleSignOut() {
+  await fetch("/api/auth/logout", { method: "POST" });
+  window.location.href = "/login";
+}
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -110,11 +116,20 @@ export function LeftSidebar({
               onClick={onToggle}
               title="Expand sidebar"
               aria-label="Expand sidebar"
-              className="absolute -right-3 bottom-[7.5rem] z-20 hidden h-6 w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)] shadow-sm transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] md:flex"
+              className="absolute -right-3 bottom-[10.5rem] z-20 hidden h-6 w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)] shadow-sm transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] md:flex"
             >
               <PanelLeft className="h-3.5 w-3.5" />
             </button>
           )}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            title="Sign out"
+            aria-label="Sign out"
+            className="flex h-10 w-10 items-center justify-center rounded-2xl text-[var(--muted-foreground)] transition-all duration-200 hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
           {(() => {
             const active =
               pathname === brainNav.href ||
@@ -165,7 +180,7 @@ export function LeftSidebar({
           onClick={onToggle}
           title="Collapse sidebar"
           aria-label="Collapse sidebar"
-          className="absolute -right-3 bottom-[8.5rem] z-20 hidden h-6 w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)] shadow-sm transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] md:flex"
+          className="absolute -right-3 bottom-[11.5rem] z-20 hidden h-6 w-6 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface)] text-[var(--muted-foreground)] shadow-sm transition hover:bg-[var(--muted)] hover:text-[var(--foreground)] md:flex"
         >
           <PanelLeftClose className="h-3.5 w-3.5" />
         </button>
@@ -225,6 +240,17 @@ export function LeftSidebar({
       </nav>
 
       <div className="mt-auto space-y-2 px-1">
+        <button
+          type="button"
+          onClick={handleSignOut}
+          className="group flex w-full items-center gap-3 rounded-2xl px-3.5 py-2.5 text-sm font-medium text-[var(--muted-foreground)] transition-all duration-200 hover:bg-[var(--muted)] hover:text-[var(--foreground)]"
+        >
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl transition-colors group-hover:bg-[var(--surface)]">
+            <LogOut className="h-4 w-4" />
+          </span>
+          Sign Out
+        </button>
+
         {(() => {
           const active =
             pathname === brainNav.href ||

@@ -6,6 +6,8 @@ import {
   CalendarPlus,
   CalendarRange,
   Check,
+  ChevronDown,
+  Heart,
   Pencil,
   Plus,
   Trash2,
@@ -15,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { TruncatedText } from "@/components/ui/truncated-text";
-import { daysUntil, formatDate, formatINR, priorityBadgeTone } from "@/lib/utils";
+import { cn, formatDate, formatINR, priorityBadgeTone } from "@/lib/utils";
 import { toast } from "@/components/ui/toaster";
 import { InstagramNotifyBell } from "@/components/layout/InstagramNotifyBell";
 import {
@@ -23,7 +25,9 @@ import {
   toastAddedTask,
   toastMovedTask,
   toastRemovedTask,
+  todoBucket,
 } from "@/lib/task-toasts";
+import { groupFestivalTasks } from "@/lib/festivals/group-tasks";
 
 interface Task {
   id: string;
@@ -36,7 +40,11 @@ interface Task {
   amount?: number;
   notes?: string;
   dueWork?: boolean;
+  wishlist?: boolean;
+  tags?: string[];
 }
+
+type ScheduleChoice = "today" | "tomorrow" | "date" | "wishlist";
 
 const emptyForm = {
   clientName: "",
@@ -46,22 +54,34 @@ const emptyForm = {
   deadline: "",
   amount: "0",
   notes: "",
+  schedule: "date" as ScheduleChoice,
 };
 
-type TaskGroup = "today" | "tomorrow" | "future";
+type TaskGroup = "today" | "tomorrow" | "future" | "wishlist";
 
 const GROUP_LABELS: Record<TaskGroup, string> = {
   today: "Today's Tasks",
   tomorrow: "Tomorrow's Tasks",
   future: "Future Tasks",
+  wishlist: "Wishlist",
 };
 
-function groupForDeadline(deadline: string, dueWork?: boolean): TaskGroup {
-  if (dueWork) return "today";
-  const days = daysUntil(deadline);
-  if (days <= 0) return "today";
-  if (days === 1) return "tomorrow";
-  return "future";
+function groupForTask(t: Task): TaskGroup {
+  const bucket = todoBucket(t.deadline, t.dueWork, t.wishlist);
+  if (bucket === "later") return "future";
+  return bucket;
+}
+
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function tomorrowISO() {
+  return new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+}
+
+function laterISO() {
+  return new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
 }
 
 const PRIORITY_ORDER: Record<string, number> = {
@@ -76,7 +96,11 @@ function sortByPriority(a: Task, b: Task) {
     (PRIORITY_ORDER[a.priority.toLowerCase()] ?? 4) -
     (PRIORITY_ORDER[b.priority.toLowerCase()] ?? 4);
 
-  return priorityDifference || a.deadline.localeCompare(b.deadline);
+  return (
+    priorityDifference ||
+    (a.deadline || "").localeCompare(b.deadline || "") ||
+    a.projectName.localeCompare(b.projectName)
+  );
 }
 
 export default function TasksPage() {
@@ -86,6 +110,10 @@ export default function TasksPage() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showRequirements, setShowRequirements] = useState(false);
+  /** Festival groups stay collapsed until clicked. Key: `${dayGroup}:${festivalName}` */
+  const [expandedFestivals, setExpandedFestivals] = useState<
+    Record<string, boolean>
+  >({});
 
   async function load() {
     const res = await fetch("/api/tasks?status=todo");
@@ -101,22 +129,26 @@ export default function TasksPage() {
     const today: Task[] = [];
     const tomorrow: Task[] = [];
     const future: Task[] = [];
+    const wishlist: Task[] = [];
 
     for (const t of tasks) {
-      const bucket = groupForDeadline(t.deadline, t.dueWork);
+      const bucket = groupForTask(t);
       if (bucket === "today") today.push(t);
       else if (bucket === "tomorrow") tomorrow.push(t);
+      else if (bucket === "wishlist") wishlist.push(t);
       else future.push(t);
     }
 
     today.sort(sortByPriority);
     tomorrow.sort(sortByPriority);
     future.sort(sortByPriority);
+    wishlist.sort(sortByPriority);
 
     return [
       { key: "today" as const, items: today },
       { key: "tomorrow" as const, items: tomorrow },
       { key: "future" as const, items: future },
+      { key: "wishlist" as const, items: wishlist },
     ];
   }, [tasks]);
 
@@ -124,7 +156,8 @@ export default function TasksPage() {
     setEditingId(null);
     setForm({
       ...emptyForm,
-      deadline: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10),
+      deadline: laterISO(),
+      schedule: "date",
     });
     setShowRequirements(false);
     setShowForm(true);
@@ -133,22 +166,49 @@ export default function TasksPage() {
   function startEdit(t: Task) {
     setEditingId(t.id);
     const reqs = (t.requirements || []).map((s) => s.trim()).filter(Boolean);
+    const schedule: ScheduleChoice = t.wishlist
+      ? "wishlist"
+      : t.deadline === todayISO()
+        ? "today"
+        : t.deadline === tomorrowISO()
+          ? "tomorrow"
+          : "date";
     setForm({
       clientName: t.clientName,
       projectName: t.projectName,
       requirements: reqs.join(", "),
       priority: t.priority || "low",
-      deadline: t.deadline,
+      deadline: t.deadline || laterISO(),
       amount: String(t.amount ?? 0),
       notes: t.notes || "",
+      schedule,
     });
     setShowRequirements(reqs.length > 0);
     setShowForm(true);
   }
 
+  function setSchedule(choice: ScheduleChoice) {
+    setForm((f) => {
+      if (choice === "today") return { ...f, schedule: choice, deadline: todayISO() };
+      if (choice === "tomorrow")
+        return { ...f, schedule: choice, deadline: tomorrowISO() };
+      if (choice === "wishlist") return { ...f, schedule: choice, deadline: "" };
+      return {
+        ...f,
+        schedule: choice,
+        deadline: f.deadline || laterISO(),
+      };
+    });
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.clientName.trim() || !form.projectName.trim() || !form.deadline) {
+    const isWishlist = form.schedule === "wishlist";
+    if (
+      !form.clientName.trim() ||
+      !form.projectName.trim() ||
+      (!isWishlist && !form.deadline)
+    ) {
       return;
     }
     setSaving(true);
@@ -162,16 +222,21 @@ export default function TasksPage() {
             .filter(Boolean)
         : [],
       priority: form.priority,
-      deadline: form.deadline,
+      deadline: isWishlist ? "" : form.deadline,
       amount: Number(form.amount) || 0,
       notes: form.notes.trim() || undefined,
+      wishlist: isWishlist,
     };
 
     if (editingId) {
       await fetch("/api/tasks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: editingId, ...payload }),
+        body: JSON.stringify({
+          id: editingId,
+          ...payload,
+          wishlist: isWishlist,
+        }),
       });
       toast("Task updated");
     } else {
@@ -180,7 +245,7 @@ export default function TasksPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      toast(toastAddedTask(form.deadline));
+      toast(toastAddedTask(payload.deadline, isWishlist));
     }
     setSaving(false);
     setShowForm(false);
@@ -194,7 +259,7 @@ export default function TasksPage() {
     if (!confirm("Remove this task?")) return;
     const task = tasks.find((t) => t.id === id);
     await fetch(`/api/tasks?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (task) toast(toastRemovedTask(task.deadline, task.status));
+    if (task) toast(toastRemovedTask(task.deadline, task.status, task.wishlist));
     window.dispatchEvent(new Event("yashri:refresh"));
     load();
   }
@@ -212,7 +277,7 @@ export default function TasksPage() {
 
   async function moveTask(
     id: string,
-    action: "move_today" | "move_tomorrow" | "move_later"
+    action: "move_today" | "move_tomorrow" | "move_later" | "move_wishlist"
   ) {
     const res = await fetch("/api/tasks", {
       method: "PATCH",
@@ -221,12 +286,21 @@ export default function TasksPage() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.task) return;
-    toast(toastMovedTask(data.task.deadline));
+    toast(toastMovedTask(data.task.deadline, data.task.wishlist));
     window.dispatchEvent(new Event("yashri:refresh"));
     load();
   }
 
-  function renderTask(t: Task, group: TaskGroup) {
+  function festivalKey(group: TaskGroup, name: string) {
+    return `${group}:${name}`;
+  }
+
+  function toggleFestival(group: TaskGroup, name: string) {
+    const key = festivalKey(group, name);
+    setExpandedFestivals((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function renderTask(t: Task, group: TaskGroup, opts?: { hideProject?: boolean }) {
     const description = [
       ...(t.requirements || []).map((s) => s.trim()).filter(Boolean),
       ...(t.notes?.trim() ? [t.notes.trim()] : []),
@@ -248,12 +322,14 @@ export default function TasksPage() {
             {t.dueWork && <Badge tone="due">Due Work</Badge>}
             <Badge tone={priorityBadgeTone(t.priority)}>{t.priority}</Badge>
           </div>
-          <TruncatedText
-            as="p"
-            text={t.projectName}
-            max={52}
-            className="text-sm text-[var(--muted-foreground)]"
-          />
+          {!opts?.hideProject && (
+            <TruncatedText
+              as="p"
+              text={t.projectName}
+              max={52}
+              className="text-sm text-[var(--muted-foreground)]"
+            />
+          )}
           {description && (
             <TruncatedText
               as="p"
@@ -263,10 +339,16 @@ export default function TasksPage() {
             />
           )}
           <p className="pt-0.5 text-xs text-[var(--muted-foreground)]">
-            Deliver Date:{" "}
-            <span className="font-medium text-[var(--foreground)]">
-              {formatDate(t.deadline)}
-            </span>
+            {group === "wishlist" ? (
+              <>No deadline</>
+            ) : (
+              <>
+                Deliver Date:{" "}
+                <span className="font-medium text-[var(--foreground)]">
+                  {formatDate(t.deadline)}
+                </span>
+              </>
+            )}
             {" · Amount: "}
             <span className="font-medium text-[var(--foreground)]">
               {formatINR(t.amount ?? 0)}
@@ -274,7 +356,9 @@ export default function TasksPage() {
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-          {(group === "tomorrow" || group === "future") && (
+          {(group === "tomorrow" ||
+            group === "future" ||
+            group === "wishlist") && (
             <Button
               variant="outline"
               size="sm"
@@ -286,7 +370,9 @@ export default function TasksPage() {
               Today
             </Button>
           )}
-          {(group === "today" || group === "future") && (
+          {(group === "today" ||
+            group === "future" ||
+            group === "wishlist") && (
             <Button
               variant="outline"
               size="sm"
@@ -298,7 +384,9 @@ export default function TasksPage() {
               Tomorrow
             </Button>
           )}
-          {(group === "today" || group === "tomorrow") && (
+          {(group === "today" ||
+            group === "tomorrow" ||
+            group === "wishlist") && (
             <Button
               variant="outline"
               size="sm"
@@ -308,6 +396,18 @@ export default function TasksPage() {
             >
               <CalendarRange className="h-3.5 w-3.5" />
               Later
+            </Button>
+          )}
+          {group === "future" && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 rounded-full"
+              onClick={() => moveTask(t.id, "move_wishlist")}
+              title="Add to Wishlist — no deadline"
+            >
+              <Heart className="h-3.5 w-3.5" />
+              Wishlist
             </Button>
           )}
           <Button
@@ -343,6 +443,73 @@ export default function TasksPage() {
       </Card>
     );
   }
+
+  function renderFestivalGroup(
+    name: string,
+    festivalTasks: Task[],
+    group: TaskGroup
+  ) {
+    const key = festivalKey(group, name);
+    const open = !!expandedFestivals[key];
+    const dueWork = festivalTasks.some((t) => t.dueWork);
+    const deadline = festivalTasks[0]?.deadline;
+
+    return (
+      <div
+        key={key}
+        className="overflow-hidden rounded-[var(--radius-card)] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow)]"
+      >
+        <button
+          type="button"
+          onClick={() => toggleFestival(group, name)}
+          aria-expanded={open}
+          className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-[var(--muted)]/40"
+        >
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-[var(--muted-foreground)] transition-transform duration-200",
+              !open && "-rotate-90"
+            )}
+          />
+          <div className="min-w-0 flex-1">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <TruncatedText
+                as="span"
+                text={name}
+                max={40}
+                className="text-sm font-semibold"
+              />
+              {dueWork && <Badge tone="due">Due Work</Badge>}
+              <Badge tone="default">Festival</Badge>
+            </div>
+            <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">
+              {festivalTasks.length} client
+              {festivalTasks.length === 1 ? "" : "s"}
+              {deadline ? ` · Deliver ${formatDate(deadline)}` : ""}
+              {!open ? " · click to expand" : ""}
+            </p>
+          </div>
+          <span className="shrink-0 text-xs font-medium text-[var(--muted-foreground)]">
+            {festivalTasks.length}
+          </span>
+        </button>
+        {open && (
+          <div className="space-y-2 border-t border-[var(--border)] bg-[var(--panel)]/40 p-3">
+            {festivalTasks.map((t) =>
+              renderTask(t, group, { hideProject: true })
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const scheduleChips: { key: ScheduleChoice; label: string }[] = [
+    { key: "today", label: "Today" },
+    { key: "tomorrow", label: "Tomorrow" },
+    { key: "date", label: "Date" },
+    { key: "wishlist", label: "Wishlist" },
+  ];
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-4 pb-24 md:p-8">
@@ -389,14 +556,47 @@ export default function TasksPage() {
                 }
                 required
               />
-              <Input
-                type="date"
-                value={form.deadline}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, deadline: e.target.value }))
-                }
-                required
-              />
+              <div className="sm:col-span-2 space-y-2">
+                <p className="text-xs font-medium text-[var(--muted-foreground)]">
+                  When
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {scheduleChips.map((chip) => (
+                    <button
+                      key={chip.key}
+                      type="button"
+                      onClick={() => setSchedule(chip.key)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors",
+                        form.schedule === chip.key
+                          ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-foreground)]"
+                          : "border-[var(--border)] bg-[var(--surface)] text-[var(--foreground)] hover:bg-[var(--muted)]/50"
+                      )}
+                    >
+                      {chip.label}
+                    </button>
+                  ))}
+                </div>
+                {form.schedule === "date" && (
+                  <Input
+                    type="date"
+                    value={form.deadline}
+                    onChange={(e) =>
+                      setForm((f) => ({
+                        ...f,
+                        schedule: "date",
+                        deadline: e.target.value,
+                      }))
+                    }
+                    required
+                  />
+                )}
+                {form.schedule === "wishlist" && (
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    No deadline — move to Today, Tomorrow, or Later when ready
+                  </p>
+                )}
+              </div>
               <Input
                 type="number"
                 min="0"
@@ -480,7 +680,11 @@ export default function TasksPage() {
                 </span>
               </div>
               {items.length ? (
-                items.map((t) => renderTask(t, key))
+                groupFestivalTasks(items).map((entry) =>
+                  entry.kind === "festival"
+                    ? renderFestivalGroup(entry.name, entry.tasks, key)
+                    : renderTask(entry.task, key)
+                )
               ) : (
                 <p className="text-sm text-[var(--muted-foreground)]">
                   No tasks in this group.

@@ -14,6 +14,7 @@ import {
   Sparkles,
   Trash2,
 } from "lucide-react";
+import { format, isSameDay, isToday, isYesterday, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,25 @@ interface Message {
   role: "user" | "assistant" | "system";
   content: string;
   createdAt: string;
+}
+
+function chatDateLabel(iso: string): string {
+  const date = parseISO(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  if (isToday(date)) return "Today";
+  if (isYesterday(date)) return "Yesterday";
+  return format(date, "dd/MM/yyyy");
+}
+
+function DateSeparator({ label }: { label: string }) {
+  if (!label) return null;
+  return (
+    <div className="flex justify-center py-1">
+      <span className="rounded-full bg-[color-mix(in_oklab,var(--muted)_88%,transparent)] px-3 py-1 text-[11px] font-medium tracking-wide text-[var(--muted-foreground)] shadow-sm">
+        {label}
+      </span>
+    </div>
+  );
 }
 
 function inlineMarkdown(line: string): string {
@@ -337,32 +357,56 @@ export function ChatInterface() {
           className="flex-1 space-y-4 overflow-y-auto px-4 py-4 md:px-8"
         >
           {showGreetingBubble && (
-            <div className="flex justify-start">
-              <div className="max-w-[85%] rounded-[1.75rem] border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] px-5 py-4 text-sm shadow-[var(--shadow)] backdrop-blur-sm">
-                {renderMarkdownLite(greeting)}
+            <>
+              <DateSeparator label="Today" />
+              <div className="flex justify-start">
+                <div className="max-w-[85%] rounded-[1.75rem] border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] px-5 py-4 text-sm shadow-[var(--shadow)] backdrop-blur-sm">
+                  {renderMarkdownLite(greeting)}
+                </div>
               </div>
-            </div>
+            </>
           )}
 
-          {messages.map((m) => {
+          {messages.map((m, index) => {
             const hasTable = m.role === "assistant" && m.content.includes("| Name |");
+            const prev = messages[index - 1];
+            const currentDay = parseISO(m.createdAt);
+            const prevDay = prev ? parseISO(prev.createdAt) : null;
+            const isFirstMessage = index === 0;
+            const dayChanged =
+              !prevDay ||
+              Number.isNaN(prevDay.getTime()) ||
+              Number.isNaN(currentDay.getTime()) ||
+              !isSameDay(prevDay, currentDay);
+            // Skip duplicate "Today" when the ephemeral greeting already showed it
+            const showDate =
+              dayChanged &&
+              !(
+                showGreetingBubble &&
+                isFirstMessage &&
+                !Number.isNaN(currentDay.getTime()) &&
+                isToday(currentDay)
+              );
+
             return (
-            <div
-              key={m.id}
-              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={cn(
-                  "px-5 py-3.5 text-sm",
-                  hasTable ? "max-w-[95%]" : "max-w-[90%] md:max-w-[75%]",
-                  m.role === "user"
-                    ? "rounded-[1.75rem] rounded-br-md bg-[var(--accent)] text-[var(--accent-foreground)]"
-                    : "rounded-[1.75rem] rounded-bl-md border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] text-[var(--foreground)] shadow-[var(--shadow)] backdrop-blur-sm"
-                )}
-              >
-                {renderMarkdownLite(m.content)}
+              <div key={m.id} className="space-y-4">
+                {showDate && <DateSeparator label={chatDateLabel(m.createdAt)} />}
+                <div
+                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={cn(
+                      "px-5 py-3.5 text-sm",
+                      hasTable ? "max-w-[95%]" : "max-w-[90%] md:max-w-[75%]",
+                      m.role === "user"
+                        ? "rounded-[1.75rem] rounded-br-md bg-[var(--accent)] text-[var(--accent-foreground)]"
+                        : "rounded-[1.75rem] rounded-bl-md border border-[var(--border)] bg-[color-mix(in_oklab,var(--surface)_92%,transparent)] text-[var(--foreground)] shadow-[var(--shadow)] backdrop-blur-sm"
+                    )}
+                  >
+                    {renderMarkdownLite(m.content)}
+                  </div>
+                </div>
               </div>
-            </div>
             );
           })}
 

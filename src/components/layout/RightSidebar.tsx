@@ -11,12 +11,18 @@ import {
   Check,
   ChevronDown,
   Flag,
+  Heart,
   Trash2,
 } from "lucide-react";
-import { cn, daysUntil, formatDate, priorityToneClass } from "@/lib/utils";
+import { cn, formatDate, priorityToneClass } from "@/lib/utils";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { toast } from "@/components/ui/toaster";
-import { toastMovedTask, toastRemovedTask } from "@/lib/task-toasts";
+import {
+  toastMovedTask,
+  toastRemovedTask,
+  todoBucket,
+} from "@/lib/task-toasts";
+import { groupFestivalTasks } from "@/lib/festivals/group-tasks";
 
 const WIDTH_KEY = "yashri:right-sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -31,6 +37,8 @@ interface SideTask {
   deadline: string;
   status: string;
   dueWork?: boolean;
+  wishlist?: boolean;
+  tags?: string[];
 }
 
 interface SideFestival {
@@ -46,20 +54,19 @@ interface DashLite {
   upcomingFestivalList: SideFestival[];
 }
 
-type TaskGroup = "today" | "tomorrow" | "future";
+type TaskGroup = "today" | "tomorrow" | "future" | "wishlist";
 
 const GROUP_LABELS: Record<TaskGroup, string> = {
   today: "Today",
   tomorrow: "Tomorrow",
   future: "Later",
+  wishlist: "Wishlist",
 };
 
-function groupForDeadline(deadline: string, dueWork?: boolean): TaskGroup {
-  if (dueWork) return "today";
-  const days = daysUntil(deadline);
-  if (days <= 0) return "today";
-  if (days === 1) return "tomorrow";
-  return "future";
+function groupForTask(t: SideTask): TaskGroup {
+  const bucket = todoBucket(t.deadline, t.dueWork, t.wishlist);
+  if (bucket === "later") return "future";
+  return bucket;
 }
 
 function clampWidth(n: number) {
@@ -113,8 +120,13 @@ export function RightSidebar() {
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   const [resizing, setResizing] = useState(false);
   const [futureOpen, setFutureOpen] = useState(false);
+  const [wishlistOpen, setWishlistOpen] = useState(false);
   const [festivalsOpen, setFestivalsOpen] = useState(false);
   const [completing, setCompleting] = useState<Record<string, boolean>>({});
+  /** Festival task groups stay collapsed until clicked */
+  const [expandedFestivals, setExpandedFestivals] = useState<
+    Record<string, boolean>
+  >({});
   const widthRef = useRef(width);
 
   async function load() {
@@ -191,7 +203,7 @@ export function RightSidebar() {
 
   async function moveTask(
     id: string,
-    action: "move_today" | "move_tomorrow" | "move_later"
+    action: "move_today" | "move_tomorrow" | "move_later" | "move_wishlist"
   ) {
     const res = await fetch("/api/tasks", {
       method: "PATCH",
@@ -200,7 +212,7 @@ export function RightSidebar() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.task) return;
-    toast(toastMovedTask(data.task.deadline));
+    toast(toastMovedTask(data.task.deadline, data.task.wishlist));
     window.dispatchEvent(new Event("yashri:refresh"));
     await load();
   }
@@ -212,7 +224,7 @@ export function RightSidebar() {
       await fetch(`/api/tasks?id=${encodeURIComponent(task.id)}`, {
         method: "DELETE",
       });
-      toast(toastRemovedTask(task.deadline, task.status));
+      toast(toastRemovedTask(task.deadline, task.status, task.wishlist));
       window.dispatchEvent(new Event("yashri:refresh"));
       await load();
     } finally {
@@ -229,25 +241,30 @@ export function RightSidebar() {
     const today: SideTask[] = [];
     const tomorrow: SideTask[] = [];
     const future: SideTask[] = [];
+    const wishlist: SideTask[] = [];
 
     for (const t of todo) {
-      const bucket = groupForDeadline(t.deadline, t.dueWork);
+      const bucket = groupForTask(t);
       if (bucket === "today") today.push(t);
       else if (bucket === "tomorrow") tomorrow.push(t);
+      else if (bucket === "wishlist") wishlist.push(t);
       else future.push(t);
     }
 
     const byDeadline = (a: SideTask, b: SideTask) =>
-      a.deadline.localeCompare(b.deadline);
+      (a.deadline || "").localeCompare(b.deadline || "") ||
+      a.projectName.localeCompare(b.projectName);
 
     today.sort(byDeadline);
     tomorrow.sort(byDeadline);
     future.sort(byDeadline);
+    wishlist.sort(byDeadline);
 
     return [
       { key: "today" as const, items: today },
       { key: "tomorrow" as const, items: tomorrow },
       { key: "future" as const, items: future },
+      { key: "wishlist" as const, items: wishlist },
     ].filter((g) => g.items.length > 0);
   }, [data]);
 
@@ -300,13 +317,143 @@ export function RightSidebar() {
         )}
 
         {grouped.map(({ key, items }) => {
-          const isFuture = key === "future";
-          const visible = isFuture
-            ? futureOpen
-              ? items
-              : items.slice(0, 2)
-            : items;
-          const extra = isFuture ? Math.max(0, items.length - 2) : 0;
+          const isCollapsible = key === "future" || key === "wishlist";
+          const sectionOpen = key === "wishlist" ? wishlistOpen : futureOpen;
+          const setSectionOpen =
+            key === "wishlist" ? setWishlistOpen : setFutureOpen;
+          const listItems = groupFestivalTasks(items);
+          const visible = isCollapsible
+            ? sectionOpen
+              ? listItems
+              : listItems.slice(0, 2)
+            : listItems;
+          const extra = isCollapsible ? Math.max(0, listItems.length - 2) : 0;
+
+          function renderSideTask(
+            task: SideTask,
+            opts?: { hideProject?: boolean }
+          ) {
+            const isCompleting = !!completing[task.id];
+            return (
+              <div
+                key={task.id}
+                className={cn(
+                  "group/task flex gap-3 rounded-2xl border border-[var(--border)]/70 bg-[var(--surface)] px-3.5 py-3 transition-colors hover:border-[var(--border)]",
+                  isCompleting && "opacity-55"
+                )}
+              >
+                <SideCheckbox
+                  checked={isCompleting}
+                  disabled={isCompleting}
+                  onChange={() => toggleComplete(task.id)}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-start gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex min-w-0 flex-wrap items-center gap-2">
+                        <TruncatedText
+                          as="p"
+                          text={task.clientName}
+                          max={22}
+                          className="text-sm font-medium text-[var(--foreground)]"
+                        />
+                        {task.dueWork && (
+                          <span className="shrink-0 rounded-md bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-foreground)]">
+                            Due Work
+                          </span>
+                        )}
+                        <span
+                          className={cn(
+                            "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                            priorityToneClass(task.priority)
+                          )}
+                        >
+                          {task.priority}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
+                        {!opts?.hideProject && (
+                          <>
+                            <TruncatedText text={task.projectName} max={36} />
+                            {" · "}
+                          </>
+                        )}
+                        {key === "wishlist"
+                          ? "no deadline"
+                          : `due ${formatDate(task.deadline)}`}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isCompleting}
+                      onClick={() => removeTask(task)}
+                      title="Remove task"
+                      aria-label={`Remove ${task.projectName}`}
+                      className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {(key === "tomorrow" ||
+                      key === "future" ||
+                      key === "wishlist") && (
+                      <button
+                        type="button"
+                        disabled={isCompleting}
+                        onClick={() => moveTask(task.id, "move_today")}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)] disabled:opacity-50"
+                        title="Move to Today"
+                      >
+                        <CalendarCheck className="h-3 w-3" />
+                        Move to Today
+                      </button>
+                    )}
+                    {(key === "today" ||
+                      key === "future" ||
+                      key === "wishlist") && (
+                      <button
+                        type="button"
+                        disabled={isCompleting}
+                        onClick={() => moveTask(task.id, "move_tomorrow")}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)] disabled:opacity-50"
+                        title="Move to Tomorrow"
+                      >
+                        <CalendarPlus className="h-3 w-3" />
+                        Move to Tomorrow
+                      </button>
+                    )}
+                    {(key === "today" ||
+                      key === "tomorrow" ||
+                      key === "wishlist") && (
+                      <button
+                        type="button"
+                        disabled={isCompleting}
+                        onClick={() => moveTask(task.id, "move_later")}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)] disabled:opacity-50"
+                        title="Move to Later — day after tomorrow"
+                      >
+                        <CalendarRange className="h-3 w-3" />
+                        Later
+                      </button>
+                    )}
+                    {key === "future" && (
+                      <button
+                        type="button"
+                        disabled={isCompleting}
+                        onClick={() => moveTask(task.id, "move_wishlist")}
+                        className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)] disabled:opacity-50"
+                        title="Add to Wishlist — no deadline"
+                      >
+                        <Heart className="h-3 w-3" />
+                        Wishlist
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div key={key}>
@@ -314,127 +461,78 @@ export function RightSidebar() {
                 {GROUP_LABELS[key]}
               </p>
               <div className="space-y-2">
-                {visible.map((task) => {
-                  const isCompleting = !!completing[task.id];
-                  return (
-                    <div
-                      key={task.id}
-                      className={cn(
-                        "group/task flex gap-3 rounded-2xl border border-[var(--border)]/70 bg-[var(--surface)] px-3.5 py-3 transition-colors hover:border-[var(--border)]",
-                        isCompleting && "opacity-55"
-                      )}
-                    >
-                      <SideCheckbox
-                        checked={isCompleting}
-                        disabled={isCompleting}
-                        onChange={() => toggleComplete(task.id)}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-start gap-2">
+                {visible.map((entry) => {
+                  if (entry.kind === "festival") {
+                    const fKey = `${key}:${entry.name}`;
+                    const open = !!expandedFestivals[fKey];
+                    return (
+                      <div
+                        key={fKey}
+                        className="overflow-hidden rounded-2xl border border-[var(--border)]/70 bg-[var(--surface)]"
+                      >
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedFestivals((prev) => ({
+                              ...prev,
+                              [fKey]: !prev[fKey],
+                            }))
+                          }
+                          aria-expanded={open}
+                          className="flex w-full items-center gap-2 px-3.5 py-3 text-left transition-colors hover:bg-[var(--muted)]/30"
+                        >
+                          <ChevronDown
+                            className={cn(
+                              "h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)] transition-transform duration-200",
+                              !open && "-rotate-90"
+                            )}
+                          />
                           <div className="min-w-0 flex-1">
-                            <div className="flex min-w-0 flex-wrap items-center gap-2">
-                              <TruncatedText
-                                as="p"
-                                text={task.clientName}
-                                max={22}
-                                className="text-sm font-medium text-[var(--foreground)]"
-                              />
-                              {task.dueWork && (
-                                <span className="shrink-0 rounded-md bg-[var(--accent)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--accent-foreground)]">
-                                  Due Work
-                                </span>
-                              )}
-                              <span
-                                className={cn(
-                                  "shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
-                                  priorityToneClass(task.priority)
-                                )}
-                              >
-                                {task.priority}
-                              </span>
-                            </div>
-                            <p className="mt-0.5 text-xs leading-relaxed text-[var(--muted-foreground)]">
-                              <TruncatedText text={task.projectName} max={36} />
-                              {" · due "}
-                              {formatDate(task.deadline)}
+                            <TruncatedText
+                              as="p"
+                              text={entry.name}
+                              max={28}
+                              className="text-sm font-medium text-[var(--foreground)]"
+                            />
+                            <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">
+                              {entry.tasks.length} clients
+                              {!open ? " · expand" : ""}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            disabled={isCompleting}
-                            onClick={() => removeTask(task)}
-                            title="Remove task"
-                            aria-label={`Remove ${task.projectName}`}
-                            className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[var(--muted-foreground)] transition-colors hover:bg-red-500/10 hover:text-red-600 disabled:opacity-50 dark:hover:text-red-400"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        {(key === "today" ||
-                          key === "tomorrow" ||
-                          key === "future") && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {(key === "tomorrow" || key === "future") && (
-                              <button
-                                type="button"
-                                disabled={isCompleting}
-                                onClick={() => moveTask(task.id, "move_today")}
-                                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)] disabled:opacity-50"
-                                title="Move to Today"
-                              >
-                                <CalendarCheck className="h-3 w-3" />
-                                Move to Today
-                              </button>
-                            )}
-                            {(key === "today" || key === "future") && (
-                              <button
-                                type="button"
-                                disabled={isCompleting}
-                                onClick={() =>
-                                  moveTask(task.id, "move_tomorrow")
-                                }
-                                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)] disabled:opacity-50"
-                                title="Move to Tomorrow"
-                              >
-                                <CalendarPlus className="h-3 w-3" />
-                                Move to Tomorrow
-                              </button>
-                            )}
-                            {(key === "today" || key === "tomorrow") && (
-                              <button
-                                type="button"
-                                disabled={isCompleting}
-                                onClick={() => moveTask(task.id, "move_later")}
-                                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-[var(--accent-strong)] transition-colors hover:bg-[var(--accent-soft)] disabled:opacity-50"
-                                title="Move to Later — day after tomorrow"
-                              >
-                                <CalendarRange className="h-3 w-3" />
-                                Later
-                              </button>
+                          <span className="shrink-0 text-[11px] font-medium text-[var(--muted-foreground)]">
+                            {entry.tasks.length}
+                          </span>
+                        </button>
+                        {open && (
+                          <div className="space-y-2 border-t border-[var(--border)]/70 p-2">
+                            {entry.tasks.map((task) =>
+                              renderSideTask(task, { hideProject: true })
                             )}
                           </div>
                         )}
                       </div>
-                    </div>
-                  );
+                    );
+                  }
+
+                  return renderSideTask(entry.task);
                 })}
 
-                {isFuture && extra > 0 && (
+                {isCollapsible && extra > 0 && (
                   <button
                     type="button"
-                    onClick={() => setFutureOpen((o) => !o)}
-                    aria-expanded={futureOpen}
+                    onClick={() => setSectionOpen((o) => !o)}
+                    aria-expanded={sectionOpen}
                     className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-xs font-medium text-[var(--muted-foreground)] transition-colors hover:text-[var(--foreground)]"
                   >
                     <span>
-                      {futureOpen
+                      {sectionOpen
                         ? "Show less"
                         : `${extra} more ${extra === 1 ? "task" : "tasks"}`}
                     </span>
                     <ChevronDown
                       className={cn(
                         "h-3.5 w-3.5 transition-transform duration-200",
-                        futureOpen && "rotate-180"
+                        sectionOpen && "rotate-180"
                       )}
                     />
                   </button>

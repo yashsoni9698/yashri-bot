@@ -38,7 +38,9 @@ import {
   toastAddedTask,
   toastMovedTask,
   toastRemovedTask,
+  todoBucket,
 } from "@/lib/task-toasts";
+import { groupFestivalTasks } from "@/lib/festivals/group-tasks";
 import { addDays, format } from "date-fns";
 import {
   isClientTaskWork,
@@ -335,13 +337,15 @@ function isVagueMemoryOnlyAsk(message: string): boolean {
 
 function stripScheduleWords(text: string): string {
   return text
-    .replace(/\b(for|in|on)\s+(today|tomorrow)\b/gi, "")
-    .replace(/\b(today|tomorrow)\b/gi, "")
+    .replace(/\b(for|in|on)\s+(today|tomorrow|later|wishlist|wish\s*list)\b/gi, "")
+    .replace(/\b(today|tomorrow|later|wishlist)\b/gi, "")
+    .replace(/\bwish\s*list\b/gi, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
 function deadlineFromMessage(message: string, fallbackDays = 3): string {
+  if (/\bwish\s*list\b/i.test(message)) return "";
   if (/\b(for|in|on)?\s*today\b/i.test(message) || /\btoday'?s?\s+(task|work)\b/i.test(message)) {
     return todayISO();
   }
@@ -349,6 +353,10 @@ function deadlineFromMessage(message: string, fallbackDays = 3): string {
     return format(addDays(new Date(), 1), "yyyy-MM-dd");
   }
   return format(addDays(new Date(), fallbackDays), "yyyy-MM-dd");
+}
+
+function isWishlistMessage(message: string): boolean {
+  return /\bwish\s*list\b/i.test(message);
 }
 
 function priorityFromRaw(raw: string): Priority {
@@ -369,6 +377,7 @@ type PlannedTask = {
   clientName: string;
   priority: Priority;
   deadline: string;
+  wishlist?: boolean;
 };
 
 const ITEM_KIND = "post|task|reel|video|story";
@@ -516,6 +525,7 @@ function parseSingleAddTask(segment: string): PlannedTask | null {
     clientName: clientName || "General",
     priority: priorityFromRaw(segment),
     deadline: deadlineFromMessage(segment, 3),
+    wishlist: isWishlistMessage(segment) || undefined,
   };
 }
 
@@ -562,8 +572,9 @@ function parseExplicitAddTask(segment: string): PlannedTask | null {
       }
     }
     rest = rest
-      .replace(/\b(?:in|to|for|on)\s+(?:the\s+)?(?:today|tomorrow|later)\b/gi, " ")
-      .replace(/\b(?:today|tomorrow|later)\b/gi, " ")
+      .replace(/\b(?:in|to|for|on)\s+(?:the\s+)?(?:today|tomorrow|later|wishlist|wish\s*list)\b/gi, " ")
+      .replace(/\b(?:today|tomorrow|later|wishlist)\b/gi, " ")
+      .replace(/\bwish\s*list\b/gi, " ")
       .replace(/\btasks?\b/gi, " ")
       .replace(/\s+/g, " ")
       .trim();
@@ -588,6 +599,7 @@ function parseExplicitAddTask(segment: string): PlannedTask | null {
     clientName: clientName || "General",
     priority: priorityFromRaw(segment),
     deadline: deadlineFromMessage(segment, 3),
+    wishlist: isWishlistMessage(segment) || undefined,
   };
 }
 
@@ -642,9 +654,10 @@ function tryHandleAddTasks(raw: string): CommandResult | null {
             p.clientName.toLowerCase().includes(t.clientName.toLowerCase())
           : true)
     );
-    if (existing && p.deadline === todayISO() && existing.deadline !== todayISO()) {
+    if (existing && p.deadline === todayISO() && !existing.wishlist && existing.deadline !== todayISO()) {
       updateTask(existing.id, {
         deadline: p.deadline,
+        wishlist: false,
         projectName:
           stripScheduleWords(existing.projectName) || existing.projectName,
         clientName:
@@ -656,6 +669,14 @@ function tryHandleAddTasks(raw: string): CommandResult | null {
         toasts: [toastMovedTask(p.deadline)],
       };
     }
+    if (existing && p.wishlist && !existing.wishlist) {
+      updateTask(existing.id, { wishlist: true });
+      return {
+        handled: true,
+        reply: `Moved **${existing.projectName}** to Wishlist (no deadline).`,
+        toasts: [toastMovedTask("", true)],
+      };
+    }
   }
 
   const created = planned.map((p) =>
@@ -664,7 +685,8 @@ function tryHandleAddTasks(raw: string): CommandResult | null {
       projectName: p.projectName,
       requirements: [],
       priority: p.priority,
-      deadline: p.deadline,
+      deadline: p.wishlist ? "" : p.deadline,
+      wishlist: p.wishlist,
     })
   );
 
@@ -673,13 +695,16 @@ function tryHandleAddTasks(raw: string): CommandResult | null {
     if (own) resolveOwnInstagramFollowUp(own.handle);
   }
 
-  const toasts = created.map((t) => toastAddedTask(t.deadline));
+  const toasts = created.map((t) => toastAddedTask(t.deadline, t.wishlist));
 
   if (created.length === 1) {
     const task = created[0];
+    const when = task.wishlist
+      ? "Wishlist, no deadline"
+      : `${task.priority}, due ${formatDate(task.deadline)}`;
     return {
       handled: true,
-      reply: `Added **${task.projectName}** for **${task.clientName}** (${task.priority}, due ${formatDate(task.deadline)}).`,
+      reply: `Added **${task.projectName}** for **${task.clientName}** (${when}).`,
       toasts,
     };
   }
@@ -690,15 +715,20 @@ function tryHandleAddTasks(raw: string): CommandResult | null {
   );
   if (sameClient) {
     const names = created.map((t) => t.projectName).join(", ");
+    const when = created[0].wishlist
+      ? "Wishlist"
+      : `due ${formatDate(created[0].deadline)}`;
     return {
       handled: true,
-      reply: `Added **${created.length} tasks** for **${created[0].clientName}**: ${names} (due ${formatDate(created[0].deadline)}).`,
+      reply: `Added **${created.length} tasks** for **${created[0].clientName}**: ${names} (${when}).`,
       toasts,
     };
   }
 
-  const lines = created.map(
-    (t) => `- **${t.projectName}** — ${t.clientName} (due ${formatDate(t.deadline)})`
+  const lines = created.map((t) =>
+    t.wishlist
+      ? `- **${t.clientName}** — ${t.projectName} (Wishlist)`
+      : `- **${t.clientName}** — ${t.projectName} (due ${formatDate(t.deadline)})`
   );
   return {
     handled: true,
@@ -732,9 +762,12 @@ function tryHandleStructuredTaskBrief(raw: string): CommandResult | null {
   const requirementsRaw = labeledLine(raw, "requirements?");
   const deadlineRaw = labeledLine(raw, "(?:deadline|due\\s*date)");
   const amountRaw = labeledLine(raw, "amount");
-  const deadline = deadlineRaw
-    ? toStorageDate(deadlineRaw, true)
-    : deadlineFromMessage(raw, 0);
+  const wishlist = isWishlistMessage(raw);
+  const deadline = wishlist
+    ? ""
+    : deadlineRaw
+      ? toStorageDate(deadlineRaw, true)
+      : deadlineFromMessage(raw, 0);
 
   const task = createTask({
     clientName,
@@ -748,6 +781,7 @@ function tryHandleStructuredTaskBrief(raw: string): CommandResult | null {
     priority: priorityFromRaw(raw),
     deadline,
     amount: amountRaw ? Number(amountRaw.replace(/[^\d.]/g, "")) || 0 : undefined,
+    wishlist: wishlist || undefined,
   });
 
   const own = matchAccountFromText(`${task.clientName} ${task.projectName}`);
@@ -755,8 +789,10 @@ function tryHandleStructuredTaskBrief(raw: string): CommandResult | null {
 
   return {
     handled: true,
-    reply: `Added **${task.projectName}** for **${task.clientName}** (${task.priority}, due ${formatDate(task.deadline)}).`,
-    toasts: [toastAddedTask(task.deadline)],
+    reply: task.wishlist
+      ? `Added **${task.projectName}** for **${task.clientName}** to Wishlist (no deadline).`
+      : `Added **${task.projectName}** for **${task.clientName}** (${task.priority}, due ${formatDate(task.deadline)}).`,
+    toasts: [toastAddedTask(task.deadline, task.wishlist)],
   };
 }
 
@@ -792,6 +828,7 @@ function findLaterDuplicate(task: Task): Task | undefined {
   const title = task.projectName.toLowerCase();
   return open.find(
     (t) =>
+      !t.wishlist &&
       t.deadline > todayISO() &&
       (t.projectName.toLowerCase() === title ||
         t.projectName.toLowerCase().includes(title) ||
@@ -814,6 +851,7 @@ function moveTaskToToday(message: string): Task | undefined {
   return (
     updateTask(task.id, {
       deadline: todayISO(),
+      wishlist: false,
       projectName: stripScheduleWords(task.projectName) || task.projectName,
       clientName: stripScheduleWords(task.clientName) || task.clientName,
     }) ?? undefined
@@ -868,8 +906,21 @@ function tryMoveNamedItems(raw: string): CommandResult | null {
     (/\b(to|in|for|into)\s+today\b/i.test(raw) ||
       (/\btoday\b/i.test(raw) &&
         /\b(move|put|shift|schedule|edit|change|update|added|should)\b/i.test(raw)));
+  const toWishlist =
+    !toTomorrow &&
+    !toToday &&
+    (/\b(to|in|for|into)\s+(?:the\s+)?wish\s*list\b/i.test(raw) ||
+      (/\bwish\s*list\b/i.test(raw) &&
+        /\b(move|put|shift|add|schedule|edit|change|update|should)\b/i.test(raw)));
+  const toLater =
+    !toTomorrow &&
+    !toToday &&
+    !toWishlist &&
+    (/\b(to|in|for|into)\s+later\b/i.test(raw) ||
+      (/\blater\b/i.test(raw) &&
+        /\b(move|put|shift|schedule|edit|change|update|added|should)\b/i.test(raw)));
 
-  if (!toTomorrow && !toToday) return null;
+  if (!toTomorrow && !toToday && !toWishlist && !toLater) return null;
 
   // Fresh "add N different tasks … tomorrow" is creation, not a move
   if (
@@ -885,7 +936,14 @@ function tryMoveNamedItems(raw: string): CommandResult | null {
   const matches = findOpenTasksByLabels(labels);
   if (!matches.length) return null;
 
-  const deadline = toTomorrow ? tomorrowISO() : todayISO();
+  const laterDeadline = format(addDays(new Date(), 2), "yyyy-MM-dd");
+  const deadline = toTomorrow
+    ? tomorrowISO()
+    : toToday
+      ? todayISO()
+      : toLater
+        ? laterDeadline
+        : "";
   const moved: Task[] = [];
   for (const task of matches) {
     // If LLM previously renamed "Post 3" → "Edit Post 3", restore clean label
@@ -896,21 +954,35 @@ function tryMoveNamedItems(raw: string): CommandResult | null {
         return name === q || name.endsWith(q) || name.includes(` ${q}`);
       }) || task.projectName;
 
-    const updated = updateTask(task.id, {
-      deadline,
-      projectName: cleanName,
-    });
+    const updated = updateTask(
+      task.id,
+      toWishlist
+        ? { wishlist: true, projectName: cleanName }
+        : {
+            deadline,
+            wishlist: false,
+            projectName: cleanName,
+          }
+    );
     if (updated) moved.push(updated);
   }
 
   if (!moved.length) return null;
 
   const names = moved.map((t) => t.projectName).join(" and ");
-  const when = toTomorrow ? "tomorrow" : "today";
+  const when = toWishlist
+    ? "Wishlist"
+    : toLater
+      ? "Later"
+      : toTomorrow
+        ? "tomorrow"
+        : "today";
   return {
     handled: true,
-    reply: `Moved **${names}** to ${when} (due ${formatDate(deadline)}).`,
-    toasts: moved.map(() => toastMovedTask(deadline)),
+    reply: toWishlist
+      ? `Moved **${names}** to Wishlist (no deadline).`
+      : `Moved **${names}** to ${when} (due ${formatDate(deadline)}).`,
+    toasts: moved.map((t) => toastMovedTask(t.deadline, t.wishlist)),
   };
 }
 
@@ -935,15 +1007,16 @@ function isDailyUpdateAsk(message: string): boolean {
   );
 }
 
-type WorkAskScope = "today" | "tomorrow" | "later" | "pending";
+type WorkAskScope = "today" | "tomorrow" | "later" | "wishlist" | "pending";
 
 /**
  * today → today bucket only
  * tomorrow → tomorrow bucket only
  * later → later bucket only
- * pending / daily update → next 3 days + festivals in those 3 days
+ * wishlist → wishlist only
+ * pending / daily update / check → next 3 days + festivals (+ wishlist)
  */
-function getWorkAskScope(message: string): WorkAskScope | null {
+export function getWorkAskScope(message: string): WorkAskScope | null {
   const lower = message.toLowerCase().trim().replace(/[!?.]+$/g, "");
 
   // Job Done / Payment ledger lists are handled separately
@@ -975,34 +1048,46 @@ function getWorkAskScope(message: string): WorkAskScope | null {
   // "update" is a mutation unless it's a pure status ask already handled above
   if (/\bupdate\b/.test(lower)) return null;
 
+  const hasToday = /\btoday\b/.test(lower);
+  const hasTomorrow = /\btomorrow\b/.test(lower);
+  const hasLater = /\b(later|future)\b/.test(lower);
+  const hasWishlist = /\bwish\s*list\b/.test(lower);
+
+  // "can you again check" / "check my work" / "check again"
+  const isCheckAsk =
+    /\b(check|recheck|re-check|look\s*(at|into)|review)\b/.test(lower);
+
   const asksWork =
-    /\b(work|tasks?)\b/.test(lower) ||
-    /^(today|tomorrow|later)$/.test(lower) ||
+    /\b(work|tasks?|wishlist|wish\s*list|pending)\b/.test(lower) ||
+    isCheckAsk ||
+    /^(today|tomorrow|later|wishlist)$/.test(lower) ||
     /^(whats?|what('?s| is)|is there|are there|any|do i have|show|list|give|tell)\b/.test(
       lower
     );
 
   if (!asksWork) return null;
 
-  const hasToday = /\btoday\b/.test(lower);
-  const hasTomorrow = /\btomorrow\b/.test(lower);
-  const hasLater = /\b(later|future)\b/.test(lower);
-
   // Natural Qs must look like a question / status check
   const looksLikeAsk =
+    isCheckAsk ||
     /^(is there|are there|any|do i have|have i got|whats?|what('?s| is)|show|list|give|tell)\b/.test(
       lower
     ) ||
-    /^(today|tomorrow|later)('?s)?\s*(work|tasks?)?$/.test(lower) ||
-    /^(work|tasks?)\s+(for\s+)?(today|tomorrow|later)$/.test(lower) ||
+    /^(today|tomorrow|later|wishlist)('?s)?\s*(work|tasks?)?$/.test(lower) ||
+    /^(work|tasks?)\s+(for\s+)?(today|tomorrow|later|wishlist)$/.test(lower) ||
     /^my\s+work\s+(today|tomorrow|later)$/.test(lower) ||
-    /whats?\s+for\s+(today|tomorrow|later)/.test(lower);
+    /whats?\s+for\s+(today|tomorrow|later|wishlist)/.test(lower);
 
-  if (!looksLikeAsk && !hasToday && !hasTomorrow && !hasLater) return null;
+  if (!looksLikeAsk && !hasToday && !hasTomorrow && !hasLater && !hasWishlist)
+    return null;
 
+  if (hasWishlist && !hasToday && !hasTomorrow && !hasLater) return "wishlist";
   if (hasLater && !hasToday && !hasTomorrow) return "later";
   if (hasTomorrow && !hasToday) return "tomorrow";
   if (hasToday) return "today";
+
+  // Bare check / "check again" / "my work" with no day → full pending snapshot
+  if (isCheckAsk) return "pending";
 
   // "my work" / "show work" with no day → pending (3 days)
   if (
@@ -1017,9 +1102,17 @@ function getWorkAskScope(message: string): WorkAskScope | null {
   return null;
 }
 
+function formatPriorityLabel(priority?: string): string | null {
+  if (!priority || priority.toLowerCase() === "low") return null;
+  const p = priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase();
+  return `(${p} Priority)`;
+}
+
+/** Client name first, then project — matches how Yash reads the list. */
 function formatWorkLine(t: Task, index: number): string {
-  const bits = [`${index}) ${t.projectName} — ${t.clientName}`];
-  if (t.priority && t.priority !== "low") bits.push(`(${t.priority})`);
+  const bits = [`${index}) ${t.clientName} — ${t.projectName}`];
+  const priority = formatPriorityLabel(t.priority);
+  if (priority) bits.push(priority);
   if (t.amount) bits.push(`· ${formatINR(t.amount)}`);
   return bits.join(" ");
 }
@@ -1037,7 +1130,18 @@ function pushWorkSection(
     return;
   }
   lines.push(heading);
-  tasks.forEach((t, i) => lines.push(formatWorkLine(t, i + 1)));
+  let index = 1;
+  for (const entry of groupFestivalTasks(tasks)) {
+    if (entry.kind === "festival") {
+      lines.push(
+        `${index}) ${entry.name} — ${entry.tasks.length} clients (festival)`
+      );
+      index += 1;
+      continue;
+    }
+    lines.push(formatWorkLine(entry.task, index));
+    index += 1;
+  }
 }
 
 function pushFestivalSection(
@@ -1063,32 +1167,30 @@ function pushFestivalSection(
   });
 }
 
-/** Same buckets as the Tasks sidebar: Today / Tomorrow / Later. */
+/** Same buckets as the Tasks sidebar: Today / Tomorrow / Later / Wishlist. */
 function getWorkBuckets() {
   const tasks = getTasks().filter((t) => t.status === "todo");
   const today: Task[] = [];
   const tomorrow: Task[] = [];
   const later: Task[] = [];
+  const wishlist: Task[] = [];
 
   for (const t of tasks) {
-    if (t.dueWork) {
-      today.push(t);
-      continue;
-    }
-    const days = daysUntil(t.deadline);
-    if (days <= 0) today.push(t);
-    else if (days === 1) tomorrow.push(t);
+    const bucket = todoBucket(t.deadline, t.dueWork, t.wishlist);
+    if (bucket === "today") today.push(t);
+    else if (bucket === "tomorrow") tomorrow.push(t);
+    else if (bucket === "wishlist") wishlist.push(t);
     else later.push(t);
   }
 
-  return { today, tomorrow, later, tasks };
+  return { today, tomorrow, later, wishlist, tasks };
 }
 
 /** Tasks due within the next 3 calendar days (today = day 0). */
 function getPendingThreeDayBuckets() {
   const { today, tomorrow, tasks } = getWorkBuckets();
   const dayAfter = tasks.filter((t) => {
-    if (t.dueWork) return false;
+    if (t.wishlist || t.dueWork) return false;
     return daysUntil(t.deadline) === 2;
   });
   return { today, tomorrow, dayAfter };
@@ -1115,17 +1217,26 @@ function buildLaterWorkReply(): string {
   return lines.join("\n");
 }
 
+function buildWishlistWorkReply(): string {
+  const { wishlist } = getWorkBuckets();
+  const lines: string[] = [];
+  pushWorkSection(lines, "Wishlist", wishlist);
+  return lines.join("\n");
+}
+
 /**
  * What's pending → next 3 days of work (Today / Tomorrow / Day after),
- * plus any festival in those 3 days.
+ * Wishlist, plus any festival in those 3 days.
  */
 function buildPendingWorkReply(): string {
   const { today, tomorrow, dayAfter } = getPendingThreeDayBuckets();
+  const { wishlist } = getWorkBuckets();
   const dayAfterDate = format(addDays(new Date(), 2), "yyyy-MM-dd");
   const lines: string[] = [];
   pushWorkSection(lines, "Today", today);
   pushWorkSection(lines, "Tomorrow", tomorrow, true);
   pushWorkSection(lines, `Day After (${formatDate(dayAfterDate)})`, dayAfter, true);
+  pushWorkSection(lines, "Wishlist", wishlist, true);
   pushFestivalSection(lines, 2, true);
   return lines.join("\n");
 }
@@ -1135,11 +1246,21 @@ export function buildDailyUpdateReply(): string {
   return buildPendingWorkReply();
 }
 
-function buildWorkAskReply(scope: WorkAskScope): string {
+export function buildWorkAskReply(scope: WorkAskScope): string {
   if (scope === "today") return buildTodayWorkReply();
   if (scope === "tomorrow") return buildTomorrowWorkReply();
   if (scope === "later") return buildLaterWorkReply();
+  if (scope === "wishlist") return buildWishlistWorkReply();
   return buildPendingWorkReply();
+}
+
+/** Deterministic work/check listing — used before the LLM so checks never create tasks. */
+export function tryHandleWorkAsk(
+  message: string
+): { handled: true; reply: string } | null {
+  const scope = getWorkAskScope(message);
+  if (!scope) return null;
+  return { handled: true, reply: buildWorkAskReply(scope) };
 }
 
 /** Escape pipe chars so markdown table cells stay intact. */
@@ -1890,7 +2011,7 @@ export function resolveCommand(message: string): CommandResult {
             `I couldn't find a task matching "${name}".`,
             "",
             open.length
-              ? `Open tasks:\n${open.map((t) => `- ${t.projectName} — ${t.clientName}`).join("\n")}`
+              ? `Open tasks:\n${open.map((t) => `- ${t.clientName} — ${t.projectName}`).join("\n")}`
               : "There are no open tasks right now.",
           ].join("\n"),
         };

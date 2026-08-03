@@ -1,23 +1,39 @@
 import { daysUntil } from "@/lib/utils";
 
-export type TodoBucket = "today" | "tomorrow" | "later";
+export type TodoBucket = "today" | "tomorrow" | "later" | "wishlist";
 
-export function todoBucket(deadline: string): TodoBucket {
+/** Same Today / Tomorrow / Later / Wishlist rules as the Tasks sidebar. */
+export function todoBucket(
+  deadline: string,
+  dueWork?: boolean,
+  wishlist?: boolean
+): TodoBucket {
+  if (wishlist) return "wishlist";
+  if (dueWork) return "today";
+  if (!deadline?.trim()) return "wishlist";
   const days = daysUntil(deadline);
-  if (days <= 0) return "today";
+  if (Number.isNaN(days) || days <= 0) return "today";
   if (days === 1) return "tomorrow";
   return "later";
 }
 
-export function toastAddedTask(deadline: string): string {
-  const bucket = todoBucket(deadline);
+export function toastAddedTask(
+  deadline: string,
+  wishlist?: boolean
+): string {
+  const bucket = todoBucket(deadline, false, wishlist);
+  if (bucket === "wishlist") return "Added task in Wishlist";
   if (bucket === "today") return "Added task in Today's To Do";
   if (bucket === "tomorrow") return "Added task in Tomorrow";
   return "Added task in Later";
 }
 
-export function toastMovedTask(deadline: string): string {
-  const bucket = todoBucket(deadline);
+export function toastMovedTask(
+  deadline: string,
+  wishlist?: boolean
+): string {
+  const bucket = todoBucket(deadline, false, wishlist);
+  if (bucket === "wishlist") return "Moved to Wishlist";
   if (bucket === "today") return "Moved to Today's To Do";
   if (bucket === "tomorrow") return "Moved to Tomorrow";
   return "Moved to Later";
@@ -25,11 +41,13 @@ export function toastMovedTask(deadline: string): string {
 
 export function toastRemovedTask(
   deadline: string,
-  status?: "todo" | "payment_pending" | "done" | string
+  status?: "todo" | "payment_pending" | "done" | string,
+  wishlist?: boolean
 ): string {
   if (status === "payment_pending") return "Removed from Payment";
   if (status === "done") return "Removed from Job Done";
-  const bucket = todoBucket(deadline);
+  const bucket = todoBucket(deadline, false, wishlist);
+  if (bucket === "wishlist") return "Removed from Wishlist";
   if (bucket === "today") return "Removed from Today's To Do";
   if (bucket === "tomorrow") return "Removed from Tomorrow";
   return "Removed from Later";

@@ -15,7 +15,7 @@ import {
   isSuccessfulResult,
   normalizeActions,
 } from "@/lib/ai/action-registry";
-import { isMutationIntent, resolveCommand } from "@/lib/ai/commands";
+import { isMutationIntent, resolveCommand, tryHandleWorkAsk } from "@/lib/ai/commands";
 import { generateAssistantReply } from "@/lib/ai/providers";
 import { getUpcomingFestivals } from "@/lib/festivals/calendar";
 import { ensureFestivalClientTasks } from "@/lib/festivals/festival-tasks";
@@ -26,6 +26,16 @@ import {
 import { getPendingOffer } from "@/lib/instagram/offers";
 import { todoBucket } from "@/lib/task-toasts";
 import { daysUntil, getZonedParts, greetingForHour } from "@/lib/utils";
+
+const READ_ONLY_MUTATION_BLOCK = new Set([
+  "create_task",
+  "update_task",
+  "delete_task",
+  "complete_task",
+  "reopen_task",
+  "mark_paid",
+  "create_payment",
+]);
 
 function recentUserMessagesForLearn(sessionId?: string, limit = 6): string[] {
   const history = getChatHistory(sessionId || getActiveSessionId() || undefined);
@@ -77,6 +87,26 @@ export async function handleChat(input: {
     Boolean(getPendingOffer()) ||
     looksLikeStatefulFollowUp(userMessage, history);
 
+  // Close past festival greets, then answer work/check asks without the LLM
+  // (avoids inventing create_task on "check again" / "pending")
+  if (!input.skipLocalIntent && !isTeachingOrMetaMessage(userMessage)) {
+    ensureFestivalClientTasks();
+    const workAsk = tryHandleWorkAsk(userMessage);
+    if (workAsk) {
+      const assistant = addChatMessage(
+        { role: "assistant", content: workAsk.reply },
+        activeId || undefined
+      );
+      return {
+        reply: workAsk.reply,
+        message: assistant,
+        actions: ["work-ask"],
+        toasts: [],
+        sessionId: getActiveSessionId(),
+      };
+    }
+  }
+
   const systemPrompt = buildSystemPrompt();
   const raw = await generateAssistantReply({
     systemPrompt,
@@ -98,6 +128,17 @@ export async function handleChat(input: {
       const t = String(a.type || "").toLowerCase();
       return t === "remember" || t === "save_memory" || t === "client_preference";
     });
+  }
+
+  // Read-only status checks never mutate (belt-and-suspenders if scope missed)
+  if (
+    !isMutationIntent(userMessage) &&
+    !looksLikeStructuredTaskBrief(userMessage) &&
+    isReadOnlyStatusAsk(userMessage)
+  ) {
+    actions = actions.filter(
+      (a) => !READ_ONLY_MUTATION_BLOCK.has(String(a.type || "").toLowerCase())
+    );
   }
 
   let actionResults = executeActions(actions);
@@ -179,6 +220,23 @@ function looksLikeStructuredTaskBrief(message: string): boolean {
   return /\btask\b/i.test(message) && (labels?.length || 0) >= 1;
 }
 
+/** Soft read-only ask — check / pending / what's today — never create tasks. */
+function isReadOnlyStatusAsk(message: string): boolean {
+  const lower = message.toLowerCase().trim();
+  if (
+    /\b(add|create|remove|delete|edit|change|move|complete|mark|snooze)\b/.test(
+      lower
+    )
+  ) {
+    return false;
+  }
+  return (
+    /\b(check|recheck|re-check|pending|whats?\b|what\s+is|show|list|tell|any\s+work)\b/.test(
+      lower
+    ) || /\b(today|tomorrow|later|wishlist).*\b(work|tasks?)\b/.test(lower)
+  );
+}
+
 function looksLikeStatefulFollowUp(
   message: string,
   history: Array<{ role: "user" | "assistant"; content: string }>
@@ -245,15 +303,17 @@ export function buildGreeting() {
   const greet = greetingForHour();
   const ig = buildOwnInstagramSnapshot();
 
-  const todayTasks = tasks.filter((t) => todoBucket(t.deadline) === "today");
+  const todayTasks = tasks.filter(
+    (t) => todoBucket(t.deadline, t.dueWork, t.wishlist) === "today"
+  );
   const tomorrowTasks = tasks.filter(
-    (t) => todoBucket(t.deadline) === "tomorrow"
+    (t) => todoBucket(t.deadline, t.dueWork, t.wishlist) === "tomorrow"
   );
   const { year, month, day } = getZonedParts();
   const horizonDate = new Date(Date.UTC(year, month - 1, day + 10));
   const horizon = `${horizonDate.getUTCFullYear()}-${String(horizonDate.getUTCMonth() + 1).padStart(2, "0")}-${String(horizonDate.getUTCDate()).padStart(2, "0")}`;
   const upcomingTasks = tasks.filter((t) => {
-    if (todoBucket(t.deadline) !== "later") return false;
+    if (todoBucket(t.deadline, t.dueWork, t.wishlist) !== "later") return false;
     return t.deadline <= horizon || daysUntil(t.deadline) <= 10;
   });
 

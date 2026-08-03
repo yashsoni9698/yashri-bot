@@ -36,6 +36,7 @@ import {
   toastMovedTask,
   toastRemovedTask,
   toastReopenedTask,
+  todoBucket,
 } from "@/lib/task-toasts";
 import { addDays, format, isBefore, parseISO, startOfDay } from "date-fns";
 import { normalizeActionType } from "@/lib/ai/action-registry";
@@ -163,10 +164,29 @@ export function buildContextSnapshot(): string {
   const pendingPay = tasks.filter((t) => t.status === "payment_pending");
   const today = startOfDay(new Date());
 
-  const overdue = todo.filter((t) => isBefore(parseISO(t.deadline), today));
-  const todayTasks = todo.filter((t) => t.deadline === todayISO());
-  const tomorrow = format(addDays(today, 1), "yyyy-MM-dd");
-  const tomorrowTasks = todo.filter((t) => t.deadline === tomorrow);
+  const formatTodoLine = (t: Task) =>
+    `- id:${t.id} | ${t.clientName} — "${t.projectName}" | ${t.wishlist ? "Wishlist (no deadline)" : `due ${formatDate(t.deadline)}`} | ${t.priority}${t.dueWork ? " | Due Work" : ""}`;
+
+  // Same Today / Tomorrow / Later / Wishlist buckets as the Tasks sidebar
+  const todayTasks = todo.filter(
+    (t) => todoBucket(t.deadline, t.dueWork, t.wishlist) === "today"
+  );
+  const tomorrowTasks = todo.filter(
+    (t) => todoBucket(t.deadline, t.dueWork, t.wishlist) === "tomorrow"
+  );
+  const laterTasks = todo.filter(
+    (t) => todoBucket(t.deadline, t.dueWork, t.wishlist) === "later"
+  );
+  const wishlistTasks = todo.filter(
+    (t) => todoBucket(t.deadline, t.dueWork, t.wishlist) === "wishlist"
+  );
+  const overdue = todo.filter(
+    (t) =>
+      !t.wishlist &&
+      !t.dueWork &&
+      t.deadline &&
+      isBefore(parseISO(t.deadline), today)
+  );
 
   return `
 USER: ${settings.userName} at ${settings.organization}
@@ -178,20 +198,26 @@ STATS:
 - Completed jobs: ${tasks.filter((t) => t.status === "done").length}
 - Pending payment amount: ${formatINR(payments.filter((p) => p.status === "pending").reduce((s, p) => s + p.amount, 0))}
 
-TODAY'S TASKS / OPEN TO DO (use these exact titles when deleting):
-${todo.map((t) => `- id:${t.id} | "${t.projectName}" — ${t.clientName} | due ${formatDate(t.deadline)} | ${t.priority}`).join("\n") || "- None"}
+OPEN TO DO (all open tasks — use these exact titles when deleting/editing; NOT the same as Today):
+${todo.map(formatTodoLine).join("\n") || "- None"}
 
-DUE TODAY:
-${todayTasks.map((t) => `- "${t.projectName}" — ${t.clientName}`).join("\n") || "- None"}
+TODAY (sidebar Today bucket — deadline today/overdue OR Due Work only):
+${todayTasks.map(formatTodoLine).join("\n") || "- None"}
 
 TOMORROW:
-${tomorrowTasks.map((t) => `- "${t.projectName}" — ${t.clientName}`).join("\n") || "- None"}
+${tomorrowTasks.map(formatTodoLine).join("\n") || "- None"}
 
-OVERDUE:
-${overdue.map((t) => `- "${t.projectName}" — ${t.clientName} (due ${formatDate(t.deadline)})`).join("\n") || "- None"}
+LATER:
+${laterTasks.map(formatTodoLine).join("\n") || "- None"}
+
+WISHLIST (no deadline — only move to Today / Tomorrow / Later when ready):
+${wishlistTasks.map(formatTodoLine).join("\n") || "- None"}
+
+OVERDUE (still open, past deadline, not yet rolled as Due Work):
+${overdue.map((t) => `- ${t.clientName} — "${t.projectName}" (due ${formatDate(t.deadline)})`).join("\n") || "- None"}
 
 PAYMENT PENDING:
-${pendingPay.map((t) => `- id:${t.id} "${t.projectName}" — ${t.clientName} ₹${t.amount || 0}`).join("\n") || "- None"}
+${pendingPay.map((t) => `- id:${t.id} ${t.clientName} — "${t.projectName}" ₹${t.amount || 0}`).join("\n") || "- None"}
 
 JOB DONE (recent, for edit/delete/reopen):
 ${tasks
@@ -199,7 +225,7 @@ ${tasks
   .slice(-12)
   .map(
     (t) =>
-      `- id:${t.id} "${t.projectName}" — ${t.clientName}${t.amount ? ` ₹${t.amount}` : ""}`
+      `- id:${t.id} ${t.clientName} — "${t.projectName}"${t.amount ? ` ₹${t.amount}` : ""}`
   )
   .join("\n") || "- None"}
 
@@ -282,11 +308,11 @@ When the user wants you to CHANGE data, respond with a short natural reply AND i
 :::
 
 Available actions (JSON objects in the actions array):
-1. {"type":"create_task","clientName":"...","projectName":"...","requirements":["..."],"priority":"low|medium|high|urgent","deadline":"DD-MM-YYYY","amount":number,"tags":["logo"]}
+1. {"type":"create_task","clientName":"...","projectName":"...","requirements":["..."],"priority":"low|medium|high|urgent","deadline":"DD-MM-YYYY","wishlist":true,"amount":number,"tags":["logo"]}
 2. {"type":"complete_task","query":"exact project title or client name"}
 3. {"type":"mark_paid","query":"client or project name"}
 4. {"type":"delete_task","query":"exact project title from open tasks OR job done"}
-5. {"type":"update_task","query":"...","patch":{"priority":"high","deadline":"DD-MM-YYYY","projectName":"...","clientName":"...","amount":number,"notes":"..."}}
+5. {"type":"update_task","query":"...","patch":{"priority":"high","deadline":"DD-MM-YYYY","wishlist":true,"projectName":"...","clientName":"...","amount":number,"notes":"..."}}
 6. {"type":"reopen_task","query":"completed job project title"}  // Job Done → To Do
 7. {"type":"remember","content":"...","category":"preferences|business|pricing|campaigns|notes|reminders|skills"}
 8. {"type":"client_preference","clientName":"...","preference":"..."}
@@ -310,7 +336,10 @@ Rules for actions:
 - You are the primary intent interpreter. When a natural request clearly asks for a supported change, emit the action immediately; do not wait for a special command keyword or merely explain how to do it.
 - create_task priority defaults to "low". Use medium/high/urgent ONLY if the user explicitly says that priority (e.g. "high priority", "priority medium"). Never invent a higher priority.
 - create_task: leave requirements empty [] unless the user explicitly gives requirements. Never invent them.
-- create_task: if user says today/tomorrow, deadline must be TODAY/TOMORROW from context TODAY date. If no date is supplied for a clear task request, use TODAY. Never bury schedule words in the title.
+- create_task: if user says today/tomorrow, deadline must be TODAY/TOMORROW from context TODAY date. If user says wishlist / wish list, set wishlist:true and omit deadline (no deadline). If no date is supplied for a clear task request, use TODAY. Never bury schedule words in the title.
+- Wishlist has NO deadline. To schedule a wishlist task, update_task with deadline=today|tomorrow|later (and wishlist clears automatically). To park a Later task, update_task with wishlist:true.
+- "Add to wishlist" / "put in wishlist" → create_task with wishlist:true OR update_task wishlist:true
+- "Move X from wishlist to today/tomorrow/later" → update_task with the matching deadline
 - MULTIPLE TASKS (critical): If the user asks for "N different tasks" / "N tasks" / lists "post 1, post 2, post 3" (or task 1…N), emit N separate create_task actions — one per post/task. Example: "add 3 different tasks for Sumeru Academy post1, post2, post3" → three actions with projectName "Post 1", "Post 2", "Post 3" and clientName "Sumeru Academy". NEVER create one task titled "3 different task" or "5 post".
 - If user says a task is complete AND payment is done/received/paid → still emit complete_task (the system will close it to Job Done). Do not stop at Payment Pending.
 - For remember: ONLY instructions/learnings (skills). Never remember client task work ("add 2 posts for Sumeru"), today's/tomorrow's lists, or the literal words "learn this".
@@ -337,14 +366,21 @@ Rules for actions:
 - If extracting from a brief/screenshot, create_task automatically
 - Never invent API keys or claim you changed something without an action block
 
-For read-only questions (what's today, who hasn't paid, campaign ideas), do NOT emit actions — just answer from context.
-Work schedule replies (critical — match the Tasks sidebar buckets: Today / Tomorrow / Later):
-- If the user asks about TODAY only ("whats for today work", "is there work today"): reply with ONLY **Today:** (No Work or numbered list). Do NOT include Tomorrow, Later, or Festival.
+For read-only questions (what's today, who hasn't paid, campaign ideas, "check again", "pending"), do NOT emit actions — just answer from context. Never create_task on check/list/show/pending asks.
+Work schedule replies (critical — match the Tasks sidebar buckets: Today / Tomorrow / Later / Wishlist):
+- Line format (always): ClientName — ProjectName (Medium Priority) — NEVER Project — Client.
+- Example: Akshar Consultancy — Visa Post (Medium Priority)
+- Wishlist tasks belong ONLY under **Wishlist:** — never list them under Today even if discussed earlier.
+- Past festival greets (e.g. Guru Purnima after the festival date) are not open work — do not invent or re-list them under Today.
+- Festival batches: summarize as "FestivalName — N clients (festival)" instead of listing every client.
+- If the user asks about TODAY only ("whats for today work", "is there work today"): reply with ONLY **Today:** using the TODAY section (deadline today/overdue OR Due Work). Do NOT include Tomorrow, Later, Festival, Wishlist, or OPEN TO DO.
 - If the user asks about TOMORROW only: reply with ONLY **Tomorrow:**
 - If the user asks about LATER: reply with ONLY **Later:**
-- If the user asks "whats pending" / pending work / daily update / my work (no day): show the next 3 days — **Today:**, **Tomorrow:**, **Day After (date):**, then **Festival:** only if a festival falls within those 3 days (otherwise "**Festival:** No Festival").
-- Always bold the section labels with markdown: **Today:**, **Tomorrow:**, **Later:**, **Festival:**
-- CRITICAL: Never copy tomorrow's tasks into Today. Never say Tomorrow: No Work when TOMORROW context has tasks. Use live task context only.
+- If the user asks about WISHLIST: reply with ONLY **Wishlist:**
+- If the user asks "whats pending" / pending work / daily update / my work / "check again" (no day): show **Today:**, **Tomorrow:**, **Day After (date):**, **Wishlist:**, then **Festival:** only if a festival falls within those 3 days (otherwise "**Festival:** No Festival").
+- Always bold the section labels with markdown: **Today:**, **Tomorrow:**, **Later:**, **Wishlist:**, **Festival:**
+- CRITICAL: Never list OPEN TO DO under **Today:**. OPEN TO DO is every open task (for delete/edit title matching only). **Today:** = TODAY section only. Never copy Tomorrow/Later/Wishlist into Today.
+- After create_task / update_task: confirm briefly what changed (client, title, priority, deadline). Do NOT dump the full Today or OPEN TO DO list unless the user asked what's today / pending.
 - Job Done / Payment lists: when asked to share/list Job Done or Payment (optionally for one client, e.g. "Job done of Sumeru Academy"), reply as a markdown table with columns Name | Description | Date | Rupees. Date = when the task moved to Payment (completedAt). Name = client, Description = project title.
 
 Festival tasks (critical):
@@ -404,34 +440,54 @@ export function executeActions(actions: ParsedAction[]): string[] {
         case "create_task": {
           let projectName = String(action.projectName || "New Project");
           let clientName = String(action.clientName || "Unknown");
-          let deadline = parseFlexibleDate(String(action.deadline || todayISO()));
+          const wishlist =
+            Boolean(action.wishlist) ||
+            /\bwish\s*list\b/i.test(
+              `${projectName} ${clientName} ${action.deadline || ""}`
+            );
+          let deadline = wishlist
+            ? ""
+            : parseFlexibleDate(String(action.deadline || todayISO()));
           // Schedule words belong in deadline, not titles
           const titleBlob = `${projectName} ${clientName}`.toLowerCase();
-          if (/\btoday\b/.test(titleBlob) && !action.deadline) {
-            deadline = todayISO();
-          } else if (/\btomorrow\b/.test(titleBlob) && !action.deadline) {
-            deadline = format(addDays(new Date(), 1), "yyyy-MM-dd");
+          if (!wishlist) {
+            if (/\btoday\b/.test(titleBlob) && !action.deadline) {
+              deadline = todayISO();
+            } else if (/\btomorrow\b/.test(titleBlob) && !action.deadline) {
+              deadline = format(addDays(new Date(), 1), "yyyy-MM-dd");
+            }
           }
           projectName = projectName
-            .replace(/\b(for|in|on)\s+(today|tomorrow)\b/gi, "")
-            .replace(/\b(today|tomorrow)\b/gi, "")
+            .replace(/\b(for|in|on)\s+(today|tomorrow|later|wishlist|wish\s*list)\b/gi, "")
+            .replace(/\b(today|tomorrow|later|wishlist)\b/gi, "")
+            .replace(/\bwish\s*list\b/gi, "")
             .replace(/\s+/g, " ")
             .trim() || projectName;
           clientName = clientName
-            .replace(/\b(for|in|on)\s+(today|tomorrow)\b/gi, "")
-            .replace(/\b(today|tomorrow)\b/gi, "")
+            .replace(/\b(for|in|on)\s+(today|tomorrow|later|wishlist|wish\s*list)\b/gi, "")
+            .replace(/\b(today|tomorrow|later|wishlist)\b/gi, "")
+            .replace(/\bwish\s*list\b/gi, "")
             .replace(/\s+/g, " ")
             .trim() || clientName;
 
-          // Prefer move over duplicate when same open task exists with different deadline
+          // Prefer move over duplicate when same open task exists with different schedule
           const existing = getTasks().find(
             (t) =>
               t.status === "todo" &&
               t.projectName.toLowerCase() === projectName.toLowerCase()
           );
-          if (existing && existing.deadline !== deadline) {
-            updateTask(existing.id, { deadline, projectName, clientName });
-            results.push(toastMovedTask(deadline));
+          if (
+            existing &&
+            (existing.deadline !== deadline ||
+              Boolean(existing.wishlist) !== wishlist)
+          ) {
+            updateTask(existing.id, {
+              deadline,
+              wishlist,
+              projectName,
+              clientName,
+            });
+            results.push(toastMovedTask(deadline, wishlist));
             break;
           }
 
@@ -447,6 +503,7 @@ export function executeActions(actions: ParsedAction[]): string[] {
             deadline,
             amount: action.amount ? Number(action.amount) : undefined,
             tags: Array.isArray(action.tags) ? (action.tags as string[]) : [],
+            wishlist: wishlist || undefined,
           });
           const ownAccount =
             matchAccountFromText(`${clientName} ${projectName}`) ||
@@ -458,7 +515,7 @@ export function executeActions(actions: ParsedAction[]): string[] {
           if (ownAccount) {
             resolveOwnInstagramFollowUp(ownAccount.handle);
           }
-          results.push(toastAddedTask(task.deadline));
+          results.push(toastAddedTask(task.deadline, task.wishlist));
           break;
         }
         case "complete_task": {
@@ -502,7 +559,7 @@ export function executeActions(actions: ParsedAction[]): string[] {
             break;
           }
           deleteTask(task.id);
-          results.push(toastRemovedTask(task.deadline, task.status));
+          results.push(toastRemovedTask(task.deadline, task.status, task.wishlist));
           break;
         }
         case "update_task": {
@@ -521,18 +578,30 @@ export function executeActions(actions: ParsedAction[]): string[] {
             "amount",
             "notes",
             "status",
+            "wishlist",
           ] as const) {
             if (action[key] != null && patch[key] == null) {
               (patch as Record<string, unknown>)[key] = action[key];
             }
           }
           if (patch.amount != null) patch.amount = Number(patch.amount);
-          if (patch.deadline) {
+          if (patch.wishlist === true) {
+            patch.deadline = "";
+          } else if (patch.deadline) {
             patch.deadline = parseFlexibleDate(String(patch.deadline));
+            patch.wishlist = false;
           }
           const updated = updateTask(task.id, patch);
-          if (patch.deadline && String(patch.deadline) !== task.deadline) {
-            results.push(toastMovedTask(String(patch.deadline)));
+          if (
+            patch.wishlist === true ||
+            (patch.deadline && String(patch.deadline) !== task.deadline)
+          ) {
+            results.push(
+              toastMovedTask(
+                String(patch.deadline || ""),
+                Boolean(patch.wishlist)
+              )
+            );
           } else {
             results.push(
               updated

@@ -31,16 +31,20 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   await ensureSupabaseData();
   const body = await req.json();
+  const wishlist = Boolean(body.wishlist);
   const task = createTask({
     clientName: body.clientName,
     projectName: body.projectName,
     requirements: body.requirements || [],
     priority: (body.priority as Priority) || "low",
-    deadline: toStorageDate(String(body.deadline || ""), true),
+    deadline: wishlist
+      ? ""
+      : toStorageDate(String(body.deadline || ""), true),
     amount: body.amount,
     notes: body.notes,
     tags: body.tags,
     status: body.status,
+    wishlist: wishlist || undefined,
   });
   return NextResponse.json({ task });
 }
@@ -64,6 +68,7 @@ export async function PATCH(req: NextRequest) {
     const task = updateTask(id, {
       deadline: toStorageDate("today", true),
       dueWork: false,
+      wishlist: false,
     });
     return NextResponse.json({ task });
   }
@@ -72,6 +77,7 @@ export async function PATCH(req: NextRequest) {
     const task = updateTask(id, {
       deadline: toStorageDate("tomorrow", true),
       dueWork: false,
+      wishlist: false,
     });
     return NextResponse.json({ task });
   }
@@ -81,6 +87,15 @@ export async function PATCH(req: NextRequest) {
     const later = format(addDays(new Date(), 2), "yyyy-MM-dd");
     const task = updateTask(id, {
       deadline: later,
+      dueWork: false,
+      wishlist: false,
+    });
+    return NextResponse.json({ task });
+  }
+
+  if (action === "move_wishlist") {
+    const task = updateTask(id, {
+      wishlist: true,
       dueWork: false,
     });
     return NextResponse.json({ task });
@@ -101,8 +116,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json(result);
   }
 
-  if (patch.deadline) {
+  if (patch.deadline && !patch.wishlist) {
     patch.deadline = toStorageDate(String(patch.deadline), true);
+  }
+  if (patch.wishlist === true) {
+    patch.deadline = "";
+    patch.dueWork = false;
   }
   const task = updateTask(id, patch);
   return NextResponse.json({ task });

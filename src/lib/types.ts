@@ -21,6 +21,8 @@ export interface Task {
   tags?: string[];
   /** Rolled from an unfinished today/overdue day into tomorrow */
   dueWork?: boolean;
+  /** No deadline — sits in Wishlist until moved to Today / Tomorrow / Later */
+  wishlist?: boolean;
 }
 
 export interface Client {
