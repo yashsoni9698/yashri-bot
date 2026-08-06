@@ -28,6 +28,7 @@ import {
   todoBucket,
 } from "@/lib/task-toasts";
 import { groupFestivalTasks } from "@/lib/festivals/group-tasks";
+import { dispatchAppRefresh } from "@/lib/ui/refresh";
 
 interface Task {
   id: string;
@@ -258,37 +259,85 @@ export default function TasksPage() {
   async function remove(id: string) {
     if (!confirm("Remove this task?")) return;
     const task = tasks.find((t) => t.id === id);
-    await fetch(`/api/tasks?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-    if (task) toast(toastRemovedTask(task.deadline, task.status, task.wishlist));
-    window.dispatchEvent(new Event("yashri:refresh"));
-    load();
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    toast(
+      task
+        ? toastRemovedTask(task.deadline, task.status, task.wishlist)
+        : "Removed from Today's To Do"
+    );
+    dispatchAppRefresh();
+    try {
+      const res = await fetch(`/api/tasks?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("remove failed");
+    } catch {
+      toast("Could not remove — reloading");
+      load();
+    }
   }
 
   async function complete(id: string) {
-    await fetch("/api/tasks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action: "complete" }),
-    });
+    const task = tasks.find((t) => t.id === id);
+    setTasks((prev) => prev.filter((t) => t.id !== id));
     toast(toastAddedPayment());
-    window.dispatchEvent(new Event("yashri:refresh"));
-    load();
+    dispatchAppRefresh();
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action: "complete" }),
+      });
+      if (!res.ok) throw new Error("complete failed");
+    } catch {
+      if (task) setTasks((prev) => [...prev, task]);
+      toast("Could not complete — try again");
+      load();
+    }
   }
 
   async function moveTask(
     id: string,
     action: "move_today" | "move_tomorrow" | "move_later" | "move_wishlist"
   ) {
-    const res = await fetch("/api/tasks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.task) return;
-    toast(toastMovedTask(data.task.deadline, data.task.wishlist));
-    window.dispatchEvent(new Event("yashri:refresh"));
-    load();
+    const prev = tasks.find((t) => t.id === id);
+    // Optimistic local move
+    setTasks((list) =>
+      list.map((t) => {
+        if (t.id !== id) return t;
+        if (action === "move_wishlist") {
+          return { ...t, wishlist: true, dueWork: false, deadline: "" };
+        }
+        const deadline =
+          action === "move_today"
+            ? new Date().toISOString().slice(0, 10)
+            : action === "move_tomorrow"
+              ? new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+              : new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+        return { ...t, deadline, dueWork: false, wishlist: false };
+      })
+    );
+
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.task) throw new Error("move failed");
+      toast(toastMovedTask(data.task.deadline, data.task.wishlist));
+      setTasks((list) =>
+        list.map((t) => (t.id === id ? { ...t, ...data.task } : t))
+      );
+      dispatchAppRefresh();
+    } catch {
+      if (prev) {
+        setTasks((list) => list.map((t) => (t.id === id ? prev : t)));
+      }
+      toast("Could not move — try again");
+      load();
+    }
   }
 
   function festivalKey(group: TaskGroup, name: string) {

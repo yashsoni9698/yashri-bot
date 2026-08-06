@@ -24,6 +24,7 @@ import {
 } from "@/lib/task-toasts";
 import { LedgerTableDialog } from "@/components/ledger/LedgerTableDialog";
 import type { LedgerTableRow } from "@/lib/ledger-pdf";
+import { dispatchAppRefresh } from "@/lib/ui/refresh";
 
 function displayDateToIso(display: string, fallbackIso?: string): string {
   const ymd = toStorageDate(display.trim(), false);
@@ -177,16 +178,25 @@ export default function PaymentsPage() {
   }
 
   async function markPaid(paymentId: string) {
+    const snapshot = payments;
     setBusyId(paymentId);
-    await fetch("/api/payments", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "mark_received", paymentId }),
-    });
-    setBusyId(null);
+    setPayments((prev) => prev.filter((p) => p.id !== paymentId));
     toast(toastAddedJobDone());
-    window.dispatchEvent(new Event("yashri:refresh"));
-    load();
+    dispatchAppRefresh();
+    try {
+      const res = await fetch("/api/payments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark_received", paymentId }),
+      });
+      if (!res.ok) throw new Error("mark paid failed");
+    } catch {
+      setPayments(snapshot);
+      toast("Could not mark paid — try again");
+      load();
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function undoToTask(paymentId: string) {

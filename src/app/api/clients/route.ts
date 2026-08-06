@@ -3,17 +3,17 @@ import {
   addClientPreference,
   getClients,
 } from "@/lib/data/store";
-import { ensureSupabaseData } from "@/lib/data/init";
+import { ensureKnowledgeData } from "@/lib/data/init";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  await ensureSupabaseData();
+  await ensureKnowledgeData();
   return NextResponse.json({ clients: getClients() });
 }
 
 export async function POST(req: NextRequest) {
-  await ensureSupabaseData();
+  await ensureKnowledgeData();
   const body = await req.json();
   if (body.preference && body.name) {
     const client = addClientPreference(body.name, body.preference);

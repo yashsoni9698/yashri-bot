@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleChat } from "@/lib/ai/chat";
-import { ensureSupabaseData } from "@/lib/data/init";
+import { ensureChatData } from "@/lib/data/init";
 
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  await ensureSupabaseData();
+  await ensureChatData();
   try {
     const body = await req.json();
     const message = String(body.message || "").trim();

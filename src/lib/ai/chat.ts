@@ -5,6 +5,7 @@ import {
   getSettings,
   getPayments,
   getTasks,
+  ensureDueWorkRollover,
 } from "@/lib/data/store";
 import {
   buildSystemPrompt,
@@ -87,9 +88,10 @@ export async function handleChat(input: {
     Boolean(getPendingOffer()) ||
     looksLikeStatefulFollowUp(userMessage, history);
 
-  // Close past festival greets, then answer work/check asks without the LLM
-  // (avoids inventing create_task on "check again" / "pending")
+  // Close past festival greets (throttled), rollover due work, then answer
+  // work/check asks without the LLM (avoids inventing create_task on "check")
   if (!input.skipLocalIntent && !isTeachingOrMetaMessage(userMessage)) {
+    ensureDueWorkRollover();
     ensureFestivalClientTasks();
     const workAsk = tryHandleWorkAsk(userMessage);
     if (workAsk) {
@@ -294,7 +296,8 @@ function pendingCountLine(count: number, emptyLabel: string): string {
 
 export function buildGreeting() {
   const settings = getSettings();
-  // Auto-create one task per festival client for nearby festivals
+  // Auto-create festival tasks + rollover (both throttled / cheap when no-op)
+  ensureDueWorkRollover();
   ensureFestivalClientTasks();
   const tasks = getTasks().filter((t) => t.status === "todo");
   const pendingPayments = getPayments().filter((p) => p.status === "pending");

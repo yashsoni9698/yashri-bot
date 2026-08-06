@@ -13,12 +13,12 @@ import {
   saveChatHistory,
   setActiveSessionId,
 } from "@/lib/data/store";
-import { ensureSupabaseData } from "@/lib/data/init";
+import { ensureChatData } from "@/lib/data/init";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  await ensureSupabaseData();
+  await ensureChatData();
   const greeting = buildGreeting();
   const settings = getSettings();
   let activeSessionId = getActiveSessionId();
@@ -70,7 +70,7 @@ export async function GET() {
 }
 
 export async function DELETE() {
-  await ensureSupabaseData();
+  await ensureChatData();
   clearAllChatHistory();
   return NextResponse.json({
     ok: true,
@@ -80,7 +80,7 @@ export async function DELETE() {
 }
 
 export async function POST(req: Request) {
-  await ensureSupabaseData();
+  await ensureChatData();
   const body = await req.json().catch(() => ({}));
   const action = String(body.action || "new");
 

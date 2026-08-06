@@ -132,16 +132,36 @@ function applyDueWorkRollover(tasks: Task[]): boolean {
 }
 
 export function getTasks(): Task[] {
+  return readJsonFile<Task[]>(paths.tasks(), []);
+}
+
+/** Apply due-work rollover once (not on every read). Safe to call often. */
+export function ensureDueWorkRollover(): boolean {
   const tasks = readJsonFile<Task[]>(paths.tasks(), []);
-  if (applyDueWorkRollover(tasks)) {
-    writeJsonFile(paths.tasks(), tasks);
-  }
-  return tasks;
+  if (!applyDueWorkRollover(tasks)) return false;
+  writeJsonFile(paths.tasks(), tasks);
+  scheduleTasksMarkdownSync(tasks);
+  return true;
+}
+
+let markdownSyncTimer: ReturnType<typeof setTimeout> | null = null;
+let markdownSyncPending: Task[] | null = null;
+
+function scheduleTasksMarkdownSync(tasks: Task[]): void {
+  markdownSyncPending = tasks;
+  if (markdownSyncTimer) return;
+  markdownSyncTimer = setTimeout(() => {
+    markdownSyncTimer = null;
+    const pending = markdownSyncPending;
+    markdownSyncPending = null;
+    if (pending) syncTasksMarkdown(pending);
+  }, 400);
 }
 
 export function saveTasks(tasks: Task[]): void {
   writeJsonFile(paths.tasks(), tasks);
-  syncTasksMarkdown(tasks);
+  // Debounce markdown mirror — avoids an extra Supabase upsert on every complete
+  scheduleTasksMarkdownSync(tasks);
 }
 
 export function getTaskById(id: string): Task | undefined {
@@ -214,7 +234,8 @@ export function updateTask(id: string, patch: Partial<Task>): Task | null {
 }
 
 export function completeTaskToPayment(id: string): Task | null {
-  const before = getTasks().find((t) => t.id === id) || null;
+  const tasks = getTasks();
+  const before = tasks.find((t) => t.id === id) || null;
   if (!before) return null;
   return updateTask(id, {
     status: "payment_pending",
@@ -223,17 +244,21 @@ export function completeTaskToPayment(id: string): Task | null {
   });
 }
 
-/** Complete a task and always enqueue it in Payments. */
+/** Complete a task and always enqueue it in Payments — single-pass when possible. */
 export function completeTaskWithPayment(
   id: string,
   opts?: { amount?: number; dueDate?: string }
 ): { task: Task | null; payment: Payment | null } {
-  const before = getTasks().find((t) => t.id === id) || null;
-  if (!before) return { task: null, payment: null };
+  const tasks = getTasks();
+  const idx = tasks.findIndex((t) => t.id === id);
+  if (idx < 0) return { task: null, payment: null };
+
+  const before = tasks[idx];
+  const payments = getPayments();
 
   // Already pending — reuse existing payment row
   if (before.status === "payment_pending") {
-    const existing = getPayments().find(
+    const existing = payments.find(
       (p) => p.taskId === before.id && p.status === "pending"
     );
     if (existing) return { task: before, payment: existing };
@@ -243,7 +268,6 @@ export function completeTaskWithPayment(
       projectName: before.projectName,
       amount: before.amount != null ? Number(before.amount) : 0,
       status: "pending",
-      // dueDate stores the original deliver / deadline date
       dueDate: opts?.dueDate || before.deadline,
     });
     return { task: before, payment };
@@ -253,10 +277,18 @@ export function completeTaskWithPayment(
     return { task: before, payment: null };
   }
 
-  const task = completeTaskToPayment(id);
-  if (!task) return { task: null, payment: null };
+  const now = new Date().toISOString();
+  const task: Task = {
+    ...before,
+    status: "payment_pending",
+    dueWork: false,
+    completedAt: before.completedAt || now,
+    updatedAt: now,
+  };
+  tasks[idx] = task;
+  saveTasks(tasks);
 
-  const existing = getPayments().find(
+  const existing = payments.find(
     (p) => p.taskId === task.id && p.status === "pending"
   );
   if (existing) return { task, payment: existing };
@@ -1044,9 +1076,7 @@ function saveChatStore(store: ChatStore): void {
       .map((s) => ({ ...s, messages: s.messages.slice(-200) })),
   };
   writeJsonFile(paths.chatSessions(), trimmed);
-  // Keep legacy history.json in sync with active session for older callers
-  const active = trimmed.sessions.find((s) => s.id === trimmed.activeSessionId);
-  writeJsonFile(paths.chatHistory(), active?.messages ?? []);
+  // Skip dual history.json write — one upsert per message is enough
 }
 
 export function listChatSessions(): ChatSessionMeta[] {

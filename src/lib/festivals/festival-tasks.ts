@@ -25,6 +25,10 @@ import { getZonedParts, todayISOLocal } from "@/lib/utils";
 /** Create festival client tasks 2 days before the festival. */
 const FESTIVAL_TASK_LEAD_DAYS = 2;
 
+/** At most once per hour per warm instance — enough for D-2 creation + past cleanup. */
+const FESTIVAL_ENSURE_TTL_MS = 60 * 60 * 1000;
+let lastFestivalEnsureAt = 0;
+
 /** Statuses that mean this client+festival work already exists (do not recreate). */
 const FESTIVAL_TASK_EXISTS_STATUSES = new Set([
   "todo",
@@ -109,11 +113,17 @@ function festivalOccurrenceDate(
 /**
  * Festival greets that were never checked off stay as todos; Due Work then
  * rolls them into Today forever. Once the festival day has passed, close them.
+ * Throttled to once per calendar day per warm instance.
  */
+let lastClosePastDay = "";
+
 export function closePastFestivalTodos(): number {
+  const today = todayISOLocal();
+  if (lastClosePastDay === today) return 0;
+  lastClosePastDay = today;
+
   const festivals = getFestivals();
   const tasks = getTasks();
-  const today = todayISOLocal();
   const now = new Date().toISOString();
   let closed = 0;
 
@@ -148,8 +158,15 @@ export function closePastFestivalTodos(): number {
  * Skips clients that already have a todo, payment_pending, or done task for that festival.
  */
 export function ensureFestivalClientTasks(): Task[] {
-  // Always run — even when festival reminders are off — so past greets leave Today
+  // Always clean past greets — cheap when nothing to close
   closePastFestivalTodos();
+
+  // Throttle auto-create — greeting/chat/tasks used to call create path every request
+  const now = Date.now();
+  if (now - lastFestivalEnsureAt < FESTIVAL_ENSURE_TTL_MS) {
+    return [];
+  }
+  lastFestivalEnsureAt = now;
 
   const settings = getSettings();
   if (!settings.notifications.festivalReminders) return [];

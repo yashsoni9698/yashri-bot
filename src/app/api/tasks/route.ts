@@ -5,13 +5,14 @@ import {
   createTask,
   deleteDoneTasks,
   deleteTask,
+  ensureDueWorkRollover,
   getTasks,
   markTaskPaid,
   markTaskUnpaid,
   reopenTask,
   updateTask,
 } from "@/lib/data/store";
-import { ensureFestivalClientTasks } from "@/lib/festivals/festival-tasks";
+import { closePastFestivalTodos } from "@/lib/festivals/festival-tasks";
 import { Priority } from "@/lib/types";
 import { toStorageDate } from "@/lib/utils";
 import { ensureSupabaseData } from "@/lib/data/init";
@@ -20,8 +21,8 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   await ensureSupabaseData();
-  // Keep festival-client tasks in sync when the task list is loaded
-  ensureFestivalClientTasks();
+  ensureDueWorkRollover();
+  closePastFestivalTodos();
   const status = req.nextUrl.searchParams.get("status");
   let tasks = getTasks();
   if (status) tasks = tasks.filter((t) => t.status === status);

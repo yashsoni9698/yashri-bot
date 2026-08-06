@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureSupabaseData } from "@/lib/data/init";
+import { ensureTemplateAssets } from "@/lib/data/init";
 import {
   addQuotationTemplate,
   getQuotationTemplate,
@@ -11,7 +11,7 @@ import {
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  await ensureSupabaseData();
+  await ensureTemplateAssets();
   const id = req.nextUrl.searchParams.get("id");
   const image = req.nextUrl.searchParams.get("image");
 
@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  await ensureSupabaseData();
+  await ensureTemplateAssets();
   const body = await req.json();
 
   if (body.action === "upload" && body.name && body.jpgBase64) {
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  await ensureSupabaseData();
+  await ensureTemplateAssets();
   const id = req.nextUrl.searchParams.get("id");
   if (!id) {
     return NextResponse.json({ error: "id required" }, { status: 400 });

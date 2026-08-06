@@ -18,11 +18,13 @@ import { cn, formatDate, priorityToneClass } from "@/lib/utils";
 import { TruncatedText } from "@/components/ui/truncated-text";
 import { toast } from "@/components/ui/toaster";
 import {
+  toastAddedPayment,
   toastMovedTask,
   toastRemovedTask,
   todoBucket,
 } from "@/lib/task-toasts";
 import { groupFestivalTasks } from "@/lib/festivals/group-tasks";
+import { dispatchAppRefresh } from "@/lib/ui/refresh";
 
 const WIDTH_KEY = "yashri:right-sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -130,7 +132,7 @@ export function RightSidebar() {
   const widthRef = useRef(width);
 
   async function load() {
-    const res = await fetch("/api/dashboard");
+    const res = await fetch("/api/sidebar");
     if (res.ok) setData(await res.json());
   }
 
@@ -148,7 +150,7 @@ export function RightSidebar() {
 
   useEffect(() => {
     load();
-    const id = setInterval(load, 15000);
+    const id = setInterval(load, 60_000);
     window.addEventListener("yashri:refresh", load);
     return () => {
       clearInterval(id);
@@ -182,16 +184,33 @@ export function RightSidebar() {
     };
   }, [resizing]);
 
+  function patchTodayTasks(updater: (tasks: SideTask[]) => SideTask[]) {
+    setData((prev) =>
+      prev
+        ? { ...prev, todayTasks: updater(prev.todayTasks || []) }
+        : prev
+    );
+  }
+
   async function toggleComplete(id: string) {
+    const snapshot = data?.todayTasks || [];
     setCompleting((prev) => ({ ...prev, [id]: true }));
+    patchTodayTasks((tasks) => tasks.filter((t) => t.id !== id));
+    toast(toastAddedPayment());
+    dispatchAppRefresh();
     try {
-      await fetch("/api/tasks", {
+      const res = await fetch("/api/tasks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, action: "complete" }),
       });
-      window.dispatchEvent(new Event("yashri:refresh"));
-      await load();
+      if (!res.ok) throw new Error("complete failed");
+    } catch {
+      setData((prev) =>
+        prev ? { ...prev, todayTasks: snapshot } : prev
+      );
+      toast("Could not complete — try again");
+      load();
     } finally {
       setCompleting((prev) => {
         const next = { ...prev };
@@ -205,28 +224,63 @@ export function RightSidebar() {
     id: string,
     action: "move_today" | "move_tomorrow" | "move_later" | "move_wishlist"
   ) {
-    const res = await fetch("/api/tasks", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, action }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.task) return;
-    toast(toastMovedTask(data.task.deadline, data.task.wishlist));
-    window.dispatchEvent(new Event("yashri:refresh"));
-    await load();
+    const snapshot = data?.todayTasks || [];
+    patchTodayTasks((tasks) =>
+      tasks.map((t) => {
+        if (t.id !== id) return t;
+        if (action === "move_wishlist") {
+          return { ...t, wishlist: true, dueWork: false, deadline: "" };
+        }
+        const deadline =
+          action === "move_today"
+            ? new Date().toISOString().slice(0, 10)
+            : action === "move_tomorrow"
+              ? new Date(Date.now() + 86400000).toISOString().slice(0, 10)
+              : new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10);
+        return { ...t, deadline, dueWork: false, wishlist: false };
+      })
+    );
+
+    try {
+      const res = await fetch("/api/tasks", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, action }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || !body.task) throw new Error("move failed");
+      toast(toastMovedTask(body.task.deadline, body.task.wishlist));
+      patchTodayTasks((tasks) =>
+        tasks.map((t) => (t.id === id ? { ...t, ...body.task } : t))
+      );
+      dispatchAppRefresh();
+    } catch {
+      setData((prev) =>
+        prev ? { ...prev, todayTasks: snapshot } : prev
+      );
+      toast("Could not move — try again");
+      load();
+    }
   }
 
   async function removeTask(task: SideTask) {
     if (!confirm(`Remove “${task.projectName}”?`)) return;
+    const snapshot = data?.todayTasks || [];
     setCompleting((prev) => ({ ...prev, [task.id]: true }));
+    patchTodayTasks((tasks) => tasks.filter((t) => t.id !== task.id));
+    toast(toastRemovedTask(task.deadline, task.status, task.wishlist));
+    dispatchAppRefresh();
     try {
-      await fetch(`/api/tasks?id=${encodeURIComponent(task.id)}`, {
+      const res = await fetch(`/api/tasks?id=${encodeURIComponent(task.id)}`, {
         method: "DELETE",
       });
-      toast(toastRemovedTask(task.deadline, task.status, task.wishlist));
-      window.dispatchEvent(new Event("yashri:refresh"));
-      await load();
+      if (!res.ok) throw new Error("remove failed");
+    } catch {
+      setData((prev) =>
+        prev ? { ...prev, todayTasks: snapshot } : prev
+      );
+      toast("Could not remove — try again");
+      load();
     } finally {
       setCompleting((prev) => {
         const next = { ...prev };

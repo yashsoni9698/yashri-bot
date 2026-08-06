@@ -2,22 +2,55 @@ import { after } from "next/server";
 import { supabase } from "./supabase";
 
 /**
- * Supabase-backed file store.
- * Replaces local fs read/write with a single `file_store` table.
- * Each "file" is a row: { path: string, content: string }.
- * This keeps store.ts, calendar.ts, pipeline.ts, etc. unchanged.
+ * Supabase-backed file store with tiered loading:
+ * - core: tasks/payments/settings/calendar/notifications/instagram (+ template metadata)
+ * - chat: chat/sessions (large) — only greeting/chat routes
+ * - knowledge: clients + memory — dashboard/clients/memory routes
+ * - heavy: template images + uploads — invoice/quotation image routes
  */
 
-// In-memory cache to reduce Supabase calls within a single request.
-// In serverless, each instance has its own cache — it is refreshed from
-// Supabase at the start of each request (see initDataFromSupabase) so
-// instances don't serve stale snapshots of each other's writes.
 const cache = new Map<string, string | null>();
-
-// In-flight Supabase writes. Awaited before any cache refresh so a reload
-// can't resurrect old rows, and kept alive via after() so Vercel doesn't
-// freeze the function before the write lands.
 const pendingWrites = new Set<Promise<unknown>>();
+
+const HEAVY_PREFIXES = [
+  "quotations/templates/",
+  "invoices/templates/",
+  "uploads/",
+];
+
+/** Hot paths for task/payment/sidebar work — excludes chat, clients, memory, binaries. */
+const CORE_OR_FILTER = [
+  "path.eq.tasks/tasks.json",
+  "path.eq.payments/payments.json",
+  "path.eq.settings/config.json",
+  "path.eq.quotations/templates.json",
+  "path.eq.invoices/templates.json",
+  "path.eq.invoices/records.json",
+  "path.like.calendar/%",
+  "path.like.notifications/%",
+  "path.like.instagram/%",
+].join(",");
+
+const CHAT_OR_FILTER = [
+  "path.eq.chat/sessions.json",
+  "path.eq.chat/history.json",
+].join(",");
+
+const KNOWLEDGE_OR_FILTER = [
+  "path.like.clients/%",
+  "path.like.memory/%",
+  "path.eq.tasks/today.md",
+].join(",");
+
+type LoadTier = "core" | "chat" | "knowledge" | "heavy";
+
+const CACHE_TTL_MS = 45_000;
+let lastLoadedAt = 0;
+let initPromise: Promise<void> | null = null;
+let chatPromise: Promise<void> | null = null;
+let knowledgePromise: Promise<void> | null = null;
+let heavyPromise: Promise<void> | null = null;
+const loadedTiers = new Set<LoadTier>();
 
 function persist(key: string, content: string): void {
   const write = Promise.resolve(
@@ -37,21 +70,16 @@ function persist(key: string, content: string): void {
   try {
     after(write);
   } catch {
-    // Outside a request scope (e.g. scripts) — nothing to keep alive
+    // Outside a request scope (e.g. scripts)
   }
 }
 
 function normalizePath(filePath: string): string {
-  // Convert absolute paths or relative paths to a consistent key
-  // e.g. "C:\...\data\tasks\tasks.json" → "tasks/tasks.json"
-  // e.g. "/tmp/yashri-data/tasks/tasks.json" → "tasks/tasks.json"
   const normalized = filePath.replace(/\\/g, "/");
-  // Extract the part after "data/" (handles various root prefixes)
   const dataIdx = normalized.lastIndexOf("/data/");
   if (dataIdx >= 0) {
-    return normalized.slice(dataIdx + 6); // skip "/data/"
+    return normalized.slice(dataIdx + 6);
   }
-  // If path starts with a known subfolder, use as-is
   const knownPrefixes = [
     "tasks/", "payments/", "clients/", "memory/", "calendar/",
     "settings/", "chat/", "uploads/", "instagram/", "notifications/",
@@ -64,8 +92,32 @@ function normalizePath(filePath: string): string {
   return normalized;
 }
 
+function markCacheFresh(): void {
+  lastLoadedAt = Date.now();
+}
+
+function applyRows(
+  rows: Array<{ path: string; content: string | null }> | null
+): void {
+  if (!rows) return;
+  for (const row of rows) {
+    cache.set(row.path, row.content);
+  }
+}
+
+async function fetchOr(filter: string, label: string): Promise<void> {
+  const { data, error } = await supabase
+    .from("file_store")
+    .select("path, content")
+    .or(filter);
+  if (error) {
+    console.error(`Failed to load ${label} from Supabase:`, error.message);
+  } else {
+    applyRows(data);
+  }
+}
+
 export function readJsonFile<T>(filePath: string, fallback: T): T {
-  // Use synchronous-style approach with cached data
   const key = normalizePath(filePath);
   if (cache.has(key)) {
     const cached = cache.get(key);
@@ -76,14 +128,15 @@ export function readJsonFile<T>(filePath: string, fallback: T): T {
       return fallback;
     }
   }
-  // Return fallback — actual data will be loaded via async init
   return fallback;
 }
 
 export function writeJsonFile<T>(filePath: string, data: T): void {
   const key = normalizePath(filePath);
-  const content = JSON.stringify(data, null, 2);
+  // Compact JSON — smaller/faster Supabase upserts on every complete/save
+  const content = JSON.stringify(data);
   cache.set(key, content);
+  markCacheFresh();
   persist(key, content);
 }
 
@@ -98,6 +151,7 @@ export function readMarkdown(filePath: string): string {
 export function writeMarkdown(filePath: string, content: string): void {
   const key = normalizePath(filePath);
   cache.set(key, content);
+  markCacheFresh();
   persist(key, content);
 }
 
@@ -111,6 +165,7 @@ export function readBinaryBase64(filePath: string): string | null {
 export function writeBinaryBase64(filePath: string, base64: string): void {
   const key = normalizePath(filePath);
   cache.set(key, base64);
+  markCacheFresh();
   persist(key, base64);
 }
 
@@ -126,43 +181,42 @@ export function listMarkdownFiles(dir: string): string[] {
   const results: string[] = [];
   for (const [key, value] of cache.entries()) {
     if (key.startsWith(prefix) && key.endsWith(".md") && value && value.trim()) {
-      // Return full virtual path so path.basename() works correctly
       results.push(`/data/${key}`);
     }
   }
   return results;
 }
 
-// ——— Load data from Supabase into cache (refreshed per request) ———
-
-// Short TTL coalesces the burst of parallel API calls on a page load while
-// still keeping every serverless instance fresh across requests.
-const CACHE_TTL_MS = 1000;
-let lastLoadedAt = 0;
-let initPromise: Promise<void> | null = null;
-
+/** Core hot data for tasks / payments / sidebar / settings. */
 export async function initDataFromSupabase(): Promise<void> {
-  if (Date.now() - lastLoadedAt < CACHE_TTL_MS) return;
+  if (
+    loadedTiers.has("core") &&
+    cache.size > 0 &&
+    Date.now() - lastLoadedAt < CACHE_TTL_MS
+  ) {
+    return;
+  }
   if (initPromise) return initPromise;
 
   initPromise = (async () => {
-    // Let our own in-flight writes land first so the reload can't overwrite
-    // newer local data with older rows.
     if (pendingWrites.size) {
       await Promise.allSettled([...pendingWrites]);
     }
 
-    const { data, error } = await supabase
-      .from("file_store")
-      .select("path, content");
+    await fetchOr(CORE_OR_FILTER, "core data");
+    loadedTiers.add("core");
 
-    if (error) {
-      console.error("Failed to load data from Supabase:", error.message);
-    } else if (data) {
-      for (const row of data) {
-        cache.set(row.path, row.content);
-      }
+    // Refresh already-opened tiers so TTL expiry stays consistent
+    if (loadedTiers.has("chat")) {
+      await fetchOr(CHAT_OR_FILTER, "chat data");
     }
+    if (loadedTiers.has("knowledge")) {
+      await fetchOr(KNOWLEDGE_OR_FILTER, "knowledge data");
+    }
+    if (loadedTiers.has("heavy")) {
+      await loadHeavyRows();
+    }
+
     lastLoadedAt = Date.now();
   })().finally(() => {
     initPromise = null;
@@ -171,13 +225,80 @@ export async function initDataFromSupabase(): Promise<void> {
   return initPromise;
 }
 
-export function isDataInitialized(): boolean {
-  return lastLoadedAt > 0;
+/** Chat sessions — only needed for greeting / chat APIs. */
+export async function ensureChatAssets(): Promise<void> {
+  await initDataFromSupabase();
+  if (loadedTiers.has("chat")) return;
+  if (chatPromise) return chatPromise;
+
+  chatPromise = (async () => {
+    await fetchOr(CHAT_OR_FILTER, "chat data");
+    loadedTiers.add("chat");
+  })().finally(() => {
+    chatPromise = null;
+  });
+
+  return chatPromise;
 }
 
-/** Force reload from Supabase (useful for testing) */
+/** Clients + memory markdown — dashboard / clients / memory routes. */
+export async function ensureKnowledgeAssets(): Promise<void> {
+  await initDataFromSupabase();
+  if (loadedTiers.has("knowledge")) return;
+  if (knowledgePromise) return knowledgePromise;
+
+  knowledgePromise = (async () => {
+    await fetchOr(KNOWLEDGE_OR_FILTER, "knowledge data");
+    loadedTiers.add("knowledge");
+  })().finally(() => {
+    knowledgePromise = null;
+  });
+
+  return knowledgePromise;
+}
+
+async function loadHeavyRows(): Promise<void> {
+  const results = await Promise.all(
+    HEAVY_PREFIXES.map((prefix) =>
+      supabase
+        .from("file_store")
+        .select("path, content")
+        .like("path", `${prefix}%`)
+    )
+  );
+
+  for (const { data, error } of results) {
+    if (error) {
+      console.error("Failed to load heavy assets from Supabase:", error.message);
+    } else {
+      applyRows(data);
+    }
+  }
+}
+
+/** Template images + uploads. */
+export async function ensureHeavyAssets(): Promise<void> {
+  await initDataFromSupabase();
+  if (loadedTiers.has("heavy")) return;
+  if (heavyPromise) return heavyPromise;
+
+  heavyPromise = (async () => {
+    await loadHeavyRows();
+    loadedTiers.add("heavy");
+  })().finally(() => {
+    heavyPromise = null;
+  });
+
+  return heavyPromise;
+}
+
+export function isDataInitialized(): boolean {
+  return loadedTiers.has("core");
+}
+
 export async function reloadDataFromSupabase(): Promise<void> {
   lastLoadedAt = 0;
+  loadedTiers.clear();
   cache.clear();
   await initDataFromSupabase();
 }

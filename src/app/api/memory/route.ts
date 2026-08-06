@@ -8,7 +8,7 @@ import {
   updateMemory,
 } from "@/lib/data/store";
 import { MemoryItem } from "@/lib/types";
-import { ensureSupabaseData } from "@/lib/data/init";
+import { ensureKnowledgeData } from "@/lib/data/init";
 
 export const runtime = "nodejs";
 
@@ -30,7 +30,7 @@ function asCategory(raw: unknown): MemoryItem["category"] | undefined {
 }
 
 export async function GET() {
-  await ensureSupabaseData();
+  await ensureKnowledgeData();
   return NextResponse.json({
     memories: listMemories(),
     bundle: getMemoryBundle(),
@@ -39,14 +39,14 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  await ensureSupabaseData();
+  await ensureKnowledgeData();
   const body = await req.json();
   remember(String(body.content || ""), asCategory(body.category) || "notes");
   return NextResponse.json({ ok: true, memories: listMemories() });
 }
 
 export async function PATCH(req: NextRequest) {
-  await ensureSupabaseData();
+  await ensureKnowledgeData();
   const body = await req.json();
   const id = String(body.id || "");
   const content = String(body.content || "");
@@ -69,7 +69,7 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  await ensureSupabaseData();
+  await ensureKnowledgeData();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id") || "";
   if (!id) {
