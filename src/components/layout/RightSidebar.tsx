@@ -24,7 +24,10 @@ import {
   todoBucket,
 } from "@/lib/task-toasts";
 import { groupFestivalTasks } from "@/lib/festivals/group-tasks";
-import { dispatchAppRefresh } from "@/lib/ui/refresh";
+import {
+  dispatchAppRefresh,
+  type AddedTaskDetail,
+} from "@/lib/ui/refresh";
 
 const WIDTH_KEY = "yashri:right-sidebar-width";
 const DEFAULT_WIDTH = 280;
@@ -152,9 +155,38 @@ export function RightSidebar() {
     load();
     const id = setInterval(load, 60_000);
     window.addEventListener("yashri:refresh", load);
+
+    function onTaskAdded(e: Event) {
+      const task = (e as CustomEvent<AddedTaskDetail>).detail;
+      if (!task?.id) return;
+      const sideTask: SideTask = {
+        id: task.id,
+        projectName: task.projectName,
+        clientName: task.clientName,
+        priority: task.priority || "low",
+        deadline: task.deadline || "",
+        status: task.status || "todo",
+        dueWork: task.dueWork,
+        wishlist: task.wishlist,
+        tags: task.tags,
+      };
+      setData((prev) => {
+        const list = prev?.todayTasks || [];
+        if (list.some((t) => t.id === sideTask.id)) return prev;
+        return {
+          todayTasks: [sideTask, ...list],
+          upcomingFestivalList: prev?.upcomingFestivalList || [],
+        };
+      });
+      if (task.when === "later") setFutureOpen(true);
+      if (task.when === "wishlist") setWishlistOpen(true);
+    }
+
+    window.addEventListener("yashri:task-added", onTaskAdded);
     return () => {
       clearInterval(id);
       window.removeEventListener("yashri:refresh", load);
+      window.removeEventListener("yashri:task-added", onTaskAdded);
     };
   }, []);
 

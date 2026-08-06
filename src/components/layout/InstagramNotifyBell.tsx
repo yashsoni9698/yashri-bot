@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Bell } from "lucide-react";
 import { toast } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
+import { dispatchTaskAdded } from "@/lib/ui/refresh";
 
 type IgDue = {
   kind: "instagram";
@@ -93,13 +94,34 @@ export function InstagramNotifyBell({
       const data = await res.json();
       if (!res.ok) {
         toast(data.error || "Could not update");
-        return;
+        return null;
       }
       toast(data.message || "Done");
-      window.dispatchEvent(new Event("yashri:refresh"));
+      if (data.task?.id) {
+        const when =
+          body.when === "today" ||
+          body.when === "tomorrow" ||
+          body.when === "later"
+            ? body.when
+            : undefined;
+        dispatchTaskAdded({
+          id: data.task.id,
+          clientName: data.task.clientName,
+          projectName: data.task.projectName,
+          priority: data.task.priority,
+          deadline: data.task.deadline,
+          status: data.task.status || "todo",
+          tags: data.task.tags,
+          when,
+        });
+      } else {
+        window.dispatchEvent(new Event("yashri:refresh"));
+      }
       await load();
+      return data;
     } catch {
       toast("Something went wrong");
+      return null;
     } finally {
       setBusyId(null);
       setLoading(false);

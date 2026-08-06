@@ -15,7 +15,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Textarea } from "@/components/ui/input";
 import { TruncatedText } from "@/components/ui/truncated-text";
-import { formatDate, formatINR, toStorageDate } from "@/lib/utils";
+import { formatDate, formatINR, toStorageDate, cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toaster";
 import {
   toastAddedJobDone,
@@ -25,6 +25,7 @@ import {
 import { LedgerTableDialog } from "@/components/ledger/LedgerTableDialog";
 import type { LedgerTableRow } from "@/lib/ledger-pdf";
 import { dispatchAppRefresh } from "@/lib/ui/refresh";
+import { parseISO, startOfDay } from "date-fns";
 
 function displayDateToIso(display: string, fallbackIso?: string): string {
   const ymd = toStorageDate(display.trim(), false);
@@ -52,6 +53,23 @@ interface Payment {
   notes?: string;
 }
 
+type SortMode = "newest" | "oldest";
+
+const SORT_OPTIONS: { key: SortMode; label: string }[] = [
+  { key: "newest", label: "Newest" },
+  { key: "oldest", label: "Oldest" },
+];
+
+function paymentDate(p: Payment): Date {
+  const raw = p.taskCompletedAt || p.createdAt;
+  if (!raw) return startOfDay(new Date());
+  try {
+    return startOfDay(parseISO(raw.slice(0, 10)));
+  } catch {
+    return startOfDay(new Date());
+  }
+}
+
 const emptyPaymentForm = {
   clientName: "",
   projectName: "",
@@ -66,6 +84,7 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("newest");
   const [form, setForm] = useState(emptyPaymentForm);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -272,12 +291,21 @@ export default function PaymentsPage() {
   }
 
   const searchQuery = search.trim().toLowerCase();
-  const filtered = useMemo(() => {
+  const matching = useMemo(() => {
     if (!searchQuery) return payments;
     return payments.filter((p) =>
       p.clientName.toLowerCase().includes(searchQuery)
     );
   }, [payments, searchQuery]);
+
+  const filtered = useMemo(() => {
+    const list = [...matching];
+    list.sort((a, b) => {
+      const diff = paymentDate(a).getTime() - paymentDate(b).getTime();
+      return sortMode === "oldest" ? diff : -diff;
+    });
+    return list;
+  }, [matching, sortMode]);
 
   const totalPendingAmount = useMemo(
     () =>
@@ -537,6 +565,30 @@ export default function PaymentsPage() {
           className="pl-9"
           aria-label="Search client"
         />
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-[var(--muted-foreground)]">
+          {filtered.length} payment{filtered.length !== 1 ? "s" : ""}
+          {filtered.length !== payments.length ? ` of ${payments.length}` : ""}
+        </p>
+        <div className="flex rounded-lg border border-[var(--border)] p-0.5">
+          {SORT_OPTIONS.map(({ key, label }) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setSortMode(key)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                sortMode === key
+                  ? "bg-[var(--accent)] text-[var(--accent-foreground)]"
+                  : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-3">

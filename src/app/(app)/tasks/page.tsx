@@ -124,6 +124,36 @@ export default function TasksPage() {
 
   useEffect(() => {
     load();
+    const onRefresh = () => load();
+    function onTaskAdded(e: Event) {
+      const task = (e as CustomEvent).detail;
+      if (!task?.id) return;
+      setTasks((prev) => {
+        if (prev.some((t) => t.id === task.id)) return prev;
+        return [
+          {
+            id: task.id,
+            clientName: task.clientName,
+            projectName: task.projectName,
+            requirements: [],
+            priority: task.priority || "low",
+            deadline: task.deadline || "",
+            status: task.status || "todo",
+            dueWork: task.dueWork,
+            wishlist: task.wishlist,
+            tags: task.tags,
+            notes: task.notes,
+          },
+          ...prev,
+        ];
+      });
+    }
+    window.addEventListener("yashri:refresh", onRefresh);
+    window.addEventListener("yashri:task-added", onTaskAdded);
+    return () => {
+      window.removeEventListener("yashri:refresh", onRefresh);
+      window.removeEventListener("yashri:task-added", onTaskAdded);
+    };
   }, []);
 
   const grouped = useMemo(() => {

@@ -28,7 +28,8 @@ function todayISO() {
 function deadlineFor(when: "today" | "tomorrow" | "later"): string {
   if (when === "today") return todayISO();
   if (when === "tomorrow") return format(addDays(new Date(), 1), "yyyy-MM-dd");
-  return format(addDays(new Date(), 3), "yyyy-MM-dd");
+  // Match Tasks "Later" = day after tomorrow
+  return format(addDays(new Date(), 2), "yyyy-MM-dd");
 }
 
 function defaultProject(
